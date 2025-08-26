@@ -1,10 +1,7 @@
-// app/api/login/route.ts
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { prisma } from 'lib/prisma';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret'; // Put a real secret in .env
+import { prisma } from '@/lib/prisma';
+import { signJwt } from '@/lib/auth'; // We'll use our new centralized function
 
 export async function POST(request: Request) {
   try {
@@ -15,29 +12,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    // Check if user exists
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Compare passwords
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-      expiresIn: '7d',
+    // Generate JWT using our secure, centralized function
+    const token = signJwt({
+      id: user.id,
+      email: user.email,
+      role: user.role,
     });
 
-    // Return token + basic user info
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
-      token,
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
+
+    // **The Upgrade:** Set the token in a secure HttpOnly cookie
+    response.cookies.set('token', token, {
+      httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
+      secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+      sameSite: 'strict', // Helps prevent CSRF attacks
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

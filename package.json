@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@prisma/client": "^6.14.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -40,6 +41,7 @@
     "@splinetool/react-spline": "^4.0.0",
     "@types/three": "^0.176.0",
     "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.2",
     "chart.js": "^4.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -50,6 +52,7 @@
     "framer-motion": "^11.0.3",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.1",
+    "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.1",
     "lucide-react": "^0.454.0",
     "next": "^14.2.28",
@@ -70,12 +73,15 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/chart.js": "^2.9.41",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "electron": "^36.1.0",
     "postcss": "^8",
+    "prisma": "^6.14.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   },

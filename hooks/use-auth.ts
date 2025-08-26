@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+// Define the data structures for registration, login, and the API response.
 interface RegisterData {
   name: string;
   email: string;
@@ -32,7 +33,8 @@ export const useAuth = () => {
       setIsLoading(true);
       setError(null);
       
-      const response = await fetch('/api/register', {
+      // Corrected API endpoint for registration
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,7 +63,8 @@ export const useAuth = () => {
       setIsLoading(true);
       setError(null);
       
-      const response = await fetch('/api/login', {
+      // Corrected API endpoint for login
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,4 +96,4 @@ export const useAuth = () => {
   };
 };
 
-export default useAuth; 
+export default useAuth;
