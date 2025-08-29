@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -12,15 +12,15 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { ArrowRight, Lock, Mail, User, Github, Linkedin, Twitter, Gauge } from "lucide-react"
-import useAuth from "@/hooks/use-auth"
-import { toast } from "@/hooks/use-toast"
+import { ArrowRight, Lock, Mail, User, Gauge } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useAuthStore } from "@/stores/authStore" // Import the new Zustand store
 
 const SignupIllustration = () => (
-    <div className="w-full h-full object-cover">
+    <div className="w-full h-full">
       <Image
-        src="/assets/image1-optimized.webp" // Using an optimized image
+        src="/assets/image1-optimized.webp"
         alt="Signup Illustration"
         width={1200}
         height={1200}
@@ -34,56 +34,55 @@ export default function SignupPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState("student")
+  const [role, setRole] = useState("STUDENT")
   const [acceptTerms, setAcceptTerms] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
   
   const router = useRouter()
-  const { register, isLoading, error } = useAuth()
+  const { toast } = useToast()
+  
+  // Use the Zustand store for state and actions
+  const { register, isLoading, error } = useAuthStore();
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-    if (!name.trim()) newErrors.name = "Full name is required."
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Please enter a valid email."
-    if (password.length < 8) newErrors.password = "Password must be at least 8 characters."
-    if (!acceptTerms) newErrors.terms = "You must accept the terms and conditions."
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateForm()) return
-    
-    const result = await register({ name, email, password, role })
-    
-    if (result.success) {
-      toast({ title: "Account Created!", description: "Welcome to FortiTwin. You can now log in." })
-      router.push(role === "hr" ? "/hr-dashboard" : "/dashboard")
-    } else {
+  // Show a toast notification when an error occurs
+  useEffect(() => {
+    if (error) {
       toast({
         title: "Registration Failed",
-        description: result.error || "An error occurred. Please try again.",
+        description: error,
         variant: "destructive",
-      })
+      });
     }
-  }
+  }, [error, toast]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!acceptTerms) {
+      toast({ title: "Error", description: "You must accept the terms and conditions.", variant: "destructive" });
+      return;
+    }
+    
+    const success = await register({ name, email, password, role });
+    
+    if (success) {
+      toast({ title: "Account Created!", description: "Welcome to FortiTwin. You can now log in." });
+      router.push("/login");
+    }
+  };
 
   return (
-    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
+    <div className="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
         {/* --- Left Column: Illustration --- */}
         <div className="hidden lg:flex bg-muted items-center justify-center">
             <SignupIllustration />
         </div>
 
         {/* --- Right Column: Form --- */}
-        <div className="flex flex-col items-center justify-center p-6 sm:p-8">
+        <div className="flex flex-col items-center justify-center p-6 sm:p-8 overflow-y-auto">
             <div className="absolute top-6 right-6 flex items-center gap-4">
                 <ModeToggle />
             </div>
             
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-md my-auto">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -109,41 +108,34 @@ export default function SignupPage() {
                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input id="name" placeholder="John Doe" className="pl-10" value={name} onChange={(e) => setName(e.target.value)} required />
                                     </div>
-                                    {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
                                 </div>
-
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Email</Label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input id="email" type="email" placeholder="you@example.com" className="pl-10" value={email} onChange={(e) => setEmail(e.target.value)} required />
                                     </div>
-                                     {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
                                 </div>
-
                                 <div className="space-y-2">
                                     <Label htmlFor="password">Password</Label>
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input id="password" type="password" placeholder="•••••••• (min 8 characters)" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
                                     </div>
-                                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                                 </div>
-
                                 <div className="space-y-2">
                                     <Label>I am a</Label>
                                     <RadioGroup value={role} onValueChange={setRole} className="flex gap-4 pt-1">
                                         <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="student" id="student" />
+                                            <RadioGroupItem value="STUDENT" id="student" />
                                             <Label htmlFor="student" className="font-normal cursor-pointer">Student</Label>
                                         </div>
                                         <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="hr" id="hr" />
+                                            <RadioGroupItem value="HR" id="hr" />
                                             <Label htmlFor="hr" className="font-normal cursor-pointer">HR Professional</Label>
                                         </div>
                                     </RadioGroup>
                                 </div>
-                                
                                 <div className="flex items-start space-x-2 pt-2">
                                     <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(checked as boolean)} />
                                     <div className="grid gap-1.5 leading-none">
@@ -153,17 +145,14 @@ export default function SignupPage() {
                                         </Label>
                                     </div>
                                 </div>
-                                {errors.terms && <p className="text-sm text-destructive">{errors.terms}</p>}
-                                
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? "Creating Account..." : "Create Account"}
                                     {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                                 </Button>
                             </form>
                         </CardContent>
-
                         <CardFooter>
-                             <p className="w-full text-center text-sm text-muted-foreground">
+                            <p className="w-full text-center text-sm text-muted-foreground">
                                 Already have an account?{" "}
                                 <Link href="/login" className="text-primary hover:underline font-semibold">Sign in</Link>
                             </p>

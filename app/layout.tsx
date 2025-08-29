@@ -4,23 +4,23 @@
  * It wraps all pages with essential providers and defines global metadata.
  */
 
-import type React from "react"
-import "@/app/globals.css"
-import { Inter as FontSans } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import { ErrorBoundary } from "@/components/ui/error-boundary"
-import { Suspense } from "react"
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { Toaster } from "@/components/ui/toaster"
-import type { Metadata, Viewport } from "next"
-import { cn } from "@/lib/utils"
+import type React from "react";
+import "@/app/globals.css";
+import { Inter as FontSans } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { Suspense } from "react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Toaster } from "@/components/ui/toaster";
+import type { Metadata, Viewport } from "next";
+import { cn } from "@/lib/utils";
 
 // Configure the Inter font with a CSS variable
-const fontSans = FontSans({ 
-  subsets: ["latin"], 
+const fontSans = FontSans({
+  subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-})
+});
 
 /**
  * Metadata configuration for SEO and social sharing
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   verification: {
     google: 'your-google-site-verification', // Remember to replace this value
   },
-}
+};
 
 /**
  * Viewport configuration
@@ -66,7 +66,7 @@ export const viewport: Viewport = {
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#09090b' },
   ],
-}
+};
 
 /**
  * Root layout component that wraps all pages
@@ -74,7 +74,7 @@ export const viewport: Viewport = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -85,10 +85,10 @@ export default function RootLayout({
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased scroll-smooth", fontSans.variable)}>
-        <ThemeProvider 
-          attribute="class" 
+        <ThemeProvider
+          attribute="class"
           defaultTheme="system" // Changed to 'system' for better user experience
-          enableSystem 
+          enableSystem
           disableTransitionOnChange
         >
           <ErrorBoundary>
@@ -100,5 +100,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

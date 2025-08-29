@@ -1,24 +1,34 @@
+// app/api/auth/register/route.ts
+
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { Role } from '@prisma/client'; // This import will now work after `npx prisma generate`
+import { Prisma } from '@prisma/client';
+import { z } from 'zod';
+
+const registerUserSchema = z.object({
+  name: z.string().min(3, { message: "Name must be at least 3 characters long" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters long" }),
+  role: z.enum(['STUDENT', 'HR', 'OFFICER', 'ADMIN']),
+});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, password, role } = body;
+    const validation = registerUserSchema.safeParse(body);
 
-    if (!name || !email || !password || !role) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
-    
-    // Convert the incoming role to uppercase to match the database enum
-    const upperCaseRole = role.toUpperCase() as Role;
 
-    // A safety check to ensure the role is one of the ones we defined in our enum
-    if (!Object.values(Role).includes(upperCaseRole)) {
-      return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
-    }
+    // Safely use the validated data.
+    const { name, email, password, role } = validation.data;
+
+    // The problematic line has been removed. 'role' is a validated string.
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -31,7 +41,7 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashedPassword,
-        role: upperCaseRole, // Use the corrected, uppercase role
+        role: role, // Prisma client accepts the validated string directly.
       },
     });
 
@@ -39,11 +49,10 @@ export async function POST(request: Request) {
       success: true,
       user: { name: newUser.name, email: newUser.email, role: newUser.role },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Registration error:', error);
-    // Provide a more specific error message if it's a Prisma validation error
-    if (error instanceof Error && error.message.includes('Invalid `prisma.user.create()`')) {
-        return NextResponse.json({ error: 'Invalid data provided for registration.' }, { status: 400 });
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

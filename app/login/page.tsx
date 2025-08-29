@@ -1,7 +1,9 @@
+// app/login/page.tsx
+
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -9,18 +11,17 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { ArrowRight, Lock, Mail, Github, Linkedin, Twitter, Gauge } from "lucide-react"
-import useAuth from "@/hooks/use-auth"
-import { toast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useAuthStore } from "@/stores/authStore" // Import our Zustand store
 
 const LoginIllustration = () => (
-    <div className="w-full h-full object-cover">
+    <div className="w-full h-full">
       <Image
-        src="/assets/image1-optimized.webp" // Using an optimized image
+        src="/assets/image1-optimized.webp"
         alt="Login Illustration"
         width={1200}
         height={1200}
@@ -33,56 +34,55 @@ const LoginIllustration = () => (
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState("student")
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [role, setRole] = useState("student") // Default role selection
   
   const router = useRouter()
-  const { login, isLoading, error } = useAuth()
+  const { toast } = useToast()
+  
+  // Use the Zustand store for state and actions
+  const { login, isLoading, error } = useAuthStore();
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Please enter a valid email."
-    }
-    if (!password) {
-      newErrors.password = "Password is required."
-    }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateForm()) return
-    
-    const result = await login({ email, password, role })
-    
-    if (result.success) {
-      toast({ title: "Login Successful!", description: "Welcome back to FortiTwin." })
-      router.push(role === "hr" ? "/hr-dashboard" : "/dashboard")
-    } else {
+  // Show a toast notification on error
+  useEffect(() => {
+    if (error) {
       toast({
         title: "Login Failed",
-        description: result.error || "Invalid credentials. Please try again.",
+        description: error,
         variant: "destructive",
-      })
+      });
     }
-  }
+  }, [error, toast]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const success = await login({ email, password });
+    
+    if (success) {
+      toast({ title: "Login Successful!", description: "Welcome back to FortiTwin." });
+      // The role from the form is just for the UI, the actual role comes from the database.
+      // We will redirect based on the user's actual role returned from the API.
+      const user = useAuthStore.getState().user;
+      if (user) {
+         router.push(user.role === "HR" ? "/hr-dashboard" : "/dashboard");
+      }
+    }
+  };
 
   return (
-    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
+    <div className="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
         {/* --- Left Column: Illustration --- */}
         <div className="hidden lg:flex bg-muted items-center justify-center">
             <LoginIllustration />
         </div>
 
         {/* --- Right Column: Form --- */}
-        <div className="flex flex-col items-center justify-center p-6 sm:p-8">
+        <div className="flex flex-col items-center justify-center p-6 sm:p-8 overflow-y-auto">
             <div className="absolute top-6 right-6 flex items-center gap-4">
                 <ModeToggle />
             </div>
             
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-md my-auto">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -108,9 +108,7 @@ export default function LoginPage() {
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input id="email" type="email" placeholder="you@example.com" className="pl-10" value={email} onChange={(e) => setEmail(e.target.value)} required />
                                     </div>
-                                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
                                 </div>
-
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <Label htmlFor="password">Password</Label>
@@ -120,9 +118,7 @@ export default function LoginPage() {
                                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input id="password" type="password" placeholder="••••••••" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
                                     </div>
-                                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                                 </div>
-
                                 <div className="space-y-2">
                                     <Label>Sign in as</Label>
                                     <RadioGroup value={role} onValueChange={setRole} className="flex gap-4 pt-1">
@@ -136,7 +132,6 @@ export default function LoginPage() {
                                         </div>
                                     </RadioGroup>
                                 </div>
-                                
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? "Signing in..." : "Sign In"}
                                     {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
@@ -158,7 +153,7 @@ export default function LoginPage() {
                                 <Button variant="outline"><Twitter className="h-4 w-4" /></Button>
                                 <Button variant="outline"><Linkedin className="h-4 w-4" /></Button>
                             </div>
-                             <p className="text-center text-sm text-muted-foreground">
+                            <p className="text-center text-sm text-muted-foreground">
                                 Don't have an account?{" "}
                                 <Link href="/signup" className="text-primary hover:underline font-semibold">Sign up</Link>
                             </p>

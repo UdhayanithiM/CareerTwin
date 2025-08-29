@@ -1,13 +1,28 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { z } from 'zod'; // <-- Import Zod
+
+// 1. Define a schema for the expected request body
+const submitAnswerSchema = z.object({
+  questionId: z.string().min(1, { message: "Question ID is required." }),
+  answer: z.string().min(1, { message: "Answer cannot be empty." }),
+});
 
 export async function POST(request: Request) {
   try {
-    const { questionId, answer } = await request.json();
+    const body = await request.json();
 
-    if (!questionId || !answer) {
-      return NextResponse.json({ error: 'Question ID and answer are required' }, { status: 400 });
+    // 2. Validate the request body against the schema
+    const validation = submitAnswerSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
+
+    const { questionId, answer } = validation.data;
 
     const updatedQuestion = await prisma.question.update({
       where: { id: questionId },

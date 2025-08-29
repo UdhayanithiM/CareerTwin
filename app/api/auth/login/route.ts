@@ -1,16 +1,31 @@
+// app/api/auth/login/route.ts
+
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { signJwt } from '@/lib/auth'; // We'll use our new centralized function
+import { signJwt } from '@/lib/auth';
+import { z } from 'zod'; // <-- Import Zod
+
+// 1. Define a schema for login data
+const loginUserSchema = z.object({
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(1, { message: "Password is required" }), // Can't be empty
+});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    // 2. Validate the request body
+    const validation = loginUserSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
+
+    const { email, password } = validation.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -22,7 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Generate JWT using our secure, centralized function
+    // Generate JWT
     const token = signJwt({
       id: user.id,
       email: user.email,
@@ -34,11 +49,11 @@ export async function POST(request: Request) {
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
 
-    // **The Upgrade:** Set the token in a secure HttpOnly cookie
+    // Set the secure, HttpOnly cookie
     response.cookies.set('token', token, {
-      httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
-      secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
-      sameSite: 'strict', // Helps prevent CSRF attacks
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
