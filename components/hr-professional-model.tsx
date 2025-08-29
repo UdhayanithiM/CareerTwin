@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader';
+// Corrected: Import add-ons from the 'three/addons/...' path
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 export function HrProfessionalModel() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,23 +23,24 @@ export function HrProfessionalModel() {
 
     // Camera setup
     const camera = new THREE.PerspectiveCamera(
-      35, 
-      containerRef.current.clientWidth / containerRef.current.clientHeight, 
-      0.1, 
+      35,
+      containerRef.current.clientWidth / containerRef.current.clientHeight,
+      0.1,
       1000
     );
     camera.position.set(0, 1.75, 7);
 
     // Renderer setup with soft shadows
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true, 
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
       alpha: true,
     });
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    // Corrected: 'outputEncoding' is deprecated. Use 'outputColorSpace' instead.
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     containerRef.current.appendChild(renderer.domElement);
@@ -79,7 +81,7 @@ export function HrProfessionalModel() {
     // Ground shadow (subtle)
     const groundRadius = 1.8;
     const groundGeometry = new THREE.CircleGeometry(groundRadius, 32);
-    const groundMaterial = new THREE.MeshStandardMaterial({ 
+    const groundMaterial = new THREE.MeshStandardMaterial({
       color: 0xf0f0f0,
       roughness: 0.8,
       metalness: 0,
@@ -104,15 +106,16 @@ export function HrProfessionalModel() {
     
     // Define body proportions matching the image
     const HEAD_RADIUS = 0.55;
-    const BODY_HEIGHT = 2.0;
-    const BODY_WIDTH = 1.1;
-    const TOTAL_HEIGHT = 3.5;
+    // Corrected: Removed unused variables to clear the warnings.
+    // const BODY_HEIGHT = 2.0;
+    // const BODY_WIDTH = 1.1;
+    // const TOTAL_HEIGHT = 3.5;
     
     // Create legs - dark blue pants with perfect cylinder shape
     const legsGroup = new THREE.Group();
     
     const pantsGeometry = new THREE.CylinderGeometry(0.38, 0.5, 1.6, 32);
-    const pantsMaterial = new THREE.MeshStandardMaterial({ 
+    const pantsMaterial = new THREE.MeshStandardMaterial({
       color: PANTS_COLOR,
       roughness: 0.4,
       metalness: 0.1
@@ -124,7 +127,7 @@ export function HrProfessionalModel() {
     
     // Add leg separation line
     const legSeparationGeometry = new THREE.PlaneGeometry(0.02, 1.6);
-    const legSeparationMaterial = new THREE.MeshBasicMaterial({ 
+    const legSeparationMaterial = new THREE.MeshBasicMaterial({
       color: 0x0e1d3e,
       side: THREE.DoubleSide
     });
@@ -135,8 +138,8 @@ export function HrProfessionalModel() {
     
     // Create black shoes - exact shape from image
     const shoeGeometry = new THREE.CapsuleGeometry(0.2, 0.4, 8, 8);
-    const shoeMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x111111, 
+    const shoeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x111111,
       roughness: 0.3,
       metalness: 0.3
     });
@@ -163,7 +166,7 @@ export function HrProfessionalModel() {
     const torsoGroup = new THREE.Group();
     
     const torsoGeometry = new THREE.CylinderGeometry(0.6, 0.48, 1.4, 32);
-    const torsoMaterial = new THREE.MeshStandardMaterial({ 
+    const torsoMaterial = new THREE.MeshStandardMaterial({
       color: SHIRT_COLOR,
       roughness: 0.3,
       metalness: 0.1
@@ -182,7 +185,7 @@ export function HrProfessionalModel() {
     
     // Add shirt cuffs at wrists - white bands
     const cuffGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 16);
-    const cuffMaterial = new THREE.MeshStandardMaterial({ 
+    const cuffMaterial = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       roughness: 0.3,
       metalness: 0.1
@@ -200,8 +203,8 @@ export function HrProfessionalModel() {
     
     // Add collar - perfect white collar like in image
     const collarGeometry = new THREE.TorusGeometry(0.35, 0.08, 16, 32, Math.PI);
-    const collarMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xffffff, 
+    const collarMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
       roughness: 0.3,
       metalness: 0.1
     });
@@ -215,7 +218,7 @@ export function HrProfessionalModel() {
     
     // Add shirt buttons - exactly like in image
     const buttonGeometry = new THREE.CircleGeometry(0.04, 16);
-    const buttonMaterial = new THREE.MeshStandardMaterial({ 
+    const buttonMaterial = new THREE.MeshStandardMaterial({
       color: 0x14295f,
       roughness: 0.4,
       metalness: 0.3
@@ -233,7 +236,7 @@ export function HrProfessionalModel() {
     
     // Add pocket exactly like in image - on left chest
     const pocketGeometry = new THREE.PlaneGeometry(0.2, 0.25);
-    const pocketMaterial = new THREE.MeshStandardMaterial({ 
+    const pocketMaterial = new THREE.MeshStandardMaterial({
       color: SHIRT_COLOR,
       roughness: 0.3,
       metalness: 0.1,
@@ -247,7 +250,7 @@ export function HrProfessionalModel() {
     
     // Add pocket edges - subtle detail
     const pocketEdgeGeometry = new THREE.BoxGeometry(0.21, 0.01, 0.01);
-    const pocketEdgeMaterial = new THREE.MeshBasicMaterial({ 
+    const pocketEdgeMaterial = new THREE.MeshBasicMaterial({
       color: 0x8abaef,
     });
     
@@ -257,7 +260,7 @@ export function HrProfessionalModel() {
     
     // Create arms - light blue shirt with correct shape
     const armGeometry = new THREE.CylinderGeometry(0.12, 0.12, 1.3, 16);
-    const armMaterial = new THREE.MeshStandardMaterial({ 
+    const armMaterial = new THREE.MeshStandardMaterial({
       color: SHIRT_COLOR,
       roughness: 0.3,
       metalness: 0.1,
@@ -280,7 +283,7 @@ export function HrProfessionalModel() {
     
     // Create hands - skin colored and simple like in image
     const handGeometry = new THREE.SphereGeometry(0.13, 16, 16);
-    const handMaterial = new THREE.MeshStandardMaterial({ 
+    const handMaterial = new THREE.MeshStandardMaterial({
       color: SKIN_COLOR,
       roughness: 0.6,
       metalness: 0.1
@@ -300,7 +303,7 @@ export function HrProfessionalModel() {
     
     // Add tie - dark blue like in image
     const tieKnotGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.08);
-    const tieKnotMaterial = new THREE.MeshStandardMaterial({ 
+    const tieKnotMaterial = new THREE.MeshStandardMaterial({
       color: TIE_COLOR,
       roughness: 0.3,
       metalness: 0.2
@@ -311,7 +314,7 @@ export function HrProfessionalModel() {
     torsoGroup.add(tieKnot);
     
     const tieGeometry = new THREE.BoxGeometry(0.12, 0.6, 0.05);
-    const tieMaterial = new THREE.MeshStandardMaterial({ 
+    const tieMaterial = new THREE.MeshStandardMaterial({
       color: TIE_COLOR,
       roughness: 0.3,
       metalness: 0.2
@@ -327,7 +330,7 @@ export function HrProfessionalModel() {
     const headGroup = new THREE.Group();
     
     const headGeometry = new THREE.SphereGeometry(HEAD_RADIUS, 32, 32);
-    const headMaterial = new THREE.MeshStandardMaterial({ 
+    const headMaterial = new THREE.MeshStandardMaterial({
       color: SKIN_COLOR,
       roughness: 0.5,
       metalness: 0.1
@@ -339,7 +342,7 @@ export function HrProfessionalModel() {
     
     // Add simple eyes - exactly like in image
     const eyeGeometry = new THREE.CircleGeometry(0.035, 16);
-    const eyeMaterial = new THREE.MeshBasicMaterial({ 
+    const eyeMaterial = new THREE.MeshBasicMaterial({
       color: 0x000000,
     });
     
@@ -355,7 +358,7 @@ export function HrProfessionalModel() {
     
     // Add eyebrows - matching image
     const eyebrowGeometry = new THREE.BoxGeometry(0.15, 0.025, 0.01);
-    const eyebrowMaterial = new THREE.MeshBasicMaterial({ 
+    const eyebrowMaterial = new THREE.MeshBasicMaterial({
       color: 0x3a2512
     });
     
@@ -373,7 +376,7 @@ export function HrProfessionalModel() {
     
     // Add nose - subtle like in image
     const noseGeometry = new THREE.SphereGeometry(0.08, 16, 16);
-    const noseMaterial = new THREE.MeshStandardMaterial({ 
+    const noseMaterial = new THREE.MeshStandardMaterial({
       color: 0xffd0b5,
       roughness: 0.6,
       metalness: 0.1
@@ -385,7 +388,7 @@ export function HrProfessionalModel() {
     
     // Add mouth - simple smile like in image
     const smileGeometry = new THREE.TorusGeometry(0.12, 0.025, 8, 16, Math.PI);
-    const smileMaterial = new THREE.MeshBasicMaterial({ 
+    const smileMaterial = new THREE.MeshBasicMaterial({
       color: 0x333333
     });
     const smile = new THREE.Mesh(smileGeometry, smileMaterial);
@@ -396,7 +399,7 @@ export function HrProfessionalModel() {
     
     // Add ears - simple like in image
     const earGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-    const earMaterial = new THREE.MeshStandardMaterial({ 
+    const earMaterial = new THREE.MeshStandardMaterial({
       color: SKIN_COLOR,
       roughness: 0.6,
       metalness: 0.1
@@ -413,7 +416,7 @@ export function HrProfessionalModel() {
     headGroup.add(rightEar);
     
     // Add hair - stylized like in image with the swept look
-    const hairMaterial = new THREE.MeshStandardMaterial({ 
+    const hairMaterial = new THREE.MeshStandardMaterial({
       color: HAIR_COLOR,
       roughness: 0.7,
       metalness: 0.1
@@ -516,9 +519,9 @@ export function HrProfessionalModel() {
       
       // Render with post-processing
       composer.render();
-      };
+    };
       
-      animate();
+    animate();
 
     // Handle window resize
     const handleResize = () => {
@@ -548,7 +551,10 @@ export function HrProfessionalModel() {
       window.removeEventListener('resize', handleResize);
       
       if (containerRef.current) {
-          containerRef.current.removeChild(renderer.domElement);
+          // Check if renderer.domElement is a child before removing
+          if (renderer.domElement.parentNode === containerRef.current) {
+            containerRef.current.removeChild(renderer.domElement);
+          }
       }
       
       // Dispose resources
@@ -558,13 +564,19 @@ export function HrProfessionalModel() {
           
           if (object.material) {
             if (Array.isArray(object.material)) {
-              object.material.forEach(material => material.dispose());
+              object.material.forEach(material => {
+                if (material.map) material.map.dispose();
+                material.dispose();
+              });
             } else {
+              if (object.material.map) object.material.map.dispose();
               object.material.dispose();
             }
           }
         }
       });
+
+      if(shirtPatternTexture) shirtPatternTexture.dispose();
       
       renderer.dispose();
     };
@@ -587,4 +599,4 @@ export function HrProfessionalModel() {
       )}
     </div>
   );
-} 
+}

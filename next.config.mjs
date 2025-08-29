@@ -19,7 +19,7 @@ const nextConfig = {
     optimizeCss: true,
     esmExternals: 'loose',
   },
-  transpilePackages: ['framer-motion', 'chart.js'],
+  transpilePackages: ['framer-motion', 'chart.js', 'three'],
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

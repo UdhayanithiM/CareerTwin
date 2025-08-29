@@ -2,46 +2,58 @@
 
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
+import Editor from "@monaco-editor/react"
+import { Skeleton } from "./ui/skeleton"
 
 interface CodeEditorProps {
   value: string
+  // FIX: The prop now expects a function that only receives a string.
   onChange: (value: string) => void
   language?: string
   height?: string
 }
 
-export function CodeEditor({ value, onChange, language = "javascript", height = "100%" }: CodeEditorProps) {
+export function CodeEditor({ 
+  value, 
+  onChange, 
+  language = "javascript", 
+  height = "100%" 
+}: CodeEditorProps) {
   const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
-  // This ensures the component only renders on the client to avoid hydration issues
   useEffect(() => {
     setMounted(true)
   }, [])
 
   if (!mounted) {
-    return (
-      <div 
-        style={{ height }}
-        className="bg-[#1e1e1e] text-gray-300 font-mono p-4 w-full"
-      >
-        Loading editor...
-      </div>
-    )
+    return <Skeleton className="w-full h-full" style={{ height }} />;
   }
 
+  const editorTheme = theme === 'dark' ? 'vs-dark' : 'light';
+
+  // FIX: This handler ensures we always call the parent's onChange with a string.
+  const handleEditorChange = (value: string | undefined) => {
+    onChange(value || "");
+  };
+
   return (
-    <div style={{ height }} className="w-full">
-      <textarea
-        className="h-full w-full bg-[#1e1e1e] text-gray-300 font-mono p-4 resize-none outline-none"
+    <div className="h-full w-full">
+      <Editor
+        height={height}
+        language={language}
+        theme={editorTheme}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-        data-language={language}
+        onChange={handleEditorChange}
+        loading={<Skeleton className="w-full h-full" />}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          wordWrap: "on",
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+        }}
       />
     </div>
   )
 }
-
-// In a real implementation, you'd likely use a library like Monaco Editor, CodeMirror, 
-// Prism.js or Ace Editor for a more full-featured code editing experience. 

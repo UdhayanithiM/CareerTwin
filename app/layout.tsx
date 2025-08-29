@@ -1,72 +1,58 @@
 /**
  * FortiTwin - Root Layout
- * 
- * This is the top-level layout component for the entire application.
- * It wraps all pages with:
- * - Font configuration (Inter)
- * - Theme provider
- * - Error boundary
- * - Suspense for loading states
- * - Toaster for notifications
- * 
- * It also defines metadata for SEO and Open Graph.
+ * * This is the top-level layout component for the entire application.
+ * It wraps all pages with essential providers and defines global metadata.
  */
 
 import type React from "react"
 import "@/app/globals.css"
-import { Inter } from "next/font/google"
+import { Inter as FontSans } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Suspense } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Toaster } from "@/components/ui/toaster"
 import type { Metadata, Viewport } from "next"
+import { cn } from "@/lib/utils"
 
-// Configure the Inter font with Latin character subset
-const inter = Inter({ subsets: ["latin"], display: "swap" })
+// Configure the Inter font with a CSS variable
+const fontSans = FontSans({ 
+  subsets: ["latin"], 
+  variable: "--font-sans",
+  display: "swap",
+})
 
 /**
  * Metadata configuration for SEO and social sharing
  */
 export const metadata: Metadata = {
-  title: "FortiTwin",
-  description: "A modern platform for conducting interviews and assessments",
-  keywords: ['interview platform', 'recruitment', 'assessment', 'hiring'],
+  title: {
+    default: "FortiTwin",
+    template: "%s | FortiTwin",
+  },
+  description: "A modern, AI-powered platform for conducting fair and effective interviews and assessments.",
+  keywords: ['interview platform', 'recruitment', 'assessment', 'hiring', 'AI interview'],
   authors: [{ name: 'FortiTwin' }],
   openGraph: {
     title: 'FortiTwin',
-    description: 'A modern platform for conducting interviews and assessments',
+    description: 'A modern, AI-powered platform for conducting interviews and assessments.',
     type: 'website',
     locale: 'en_US',
     siteName: 'FortiTwin',
-    images: [
-      {
-        url: '/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'FortiTwin',
-      },
-    ],
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'FortiTwin Platform' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'FortiTwin',
-    description: 'A modern platform for conducting interviews and assessments',
+    description: 'A modern platform for conducting interviews and assessments.',
     images: ['/og-image.jpg'],
   },
   robots: {
     index: true,
     follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
   },
   verification: {
-    google: 'your-google-site-verification',
+    google: 'your-google-site-verification', // Remember to replace this value
   },
 }
 
@@ -76,7 +62,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#7C3AED',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 }
 
 /**
@@ -90,20 +79,21 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Favicon and manifest links */}
+        {/* Favicon and manifest links are correctly placed here */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
-      <body className={inter.className}>
-        {/* Theme provider to handle light/dark mode */}
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {/* Error boundary to catch rendering errors */}
+      <body className={cn("min-h-screen bg-background font-sans antialiased scroll-smooth", fontSans.variable)}>
+        <ThemeProvider 
+          attribute="class" 
+          defaultTheme="system" // Changed to 'system' for better user experience
+          enableSystem 
+          disableTransitionOnChange
+        >
           <ErrorBoundary>
-            {/* Suspense for handling loading states */}
             <Suspense fallback={<LoadingSpinner />}>
               {children}
-              {/* Global toast notifications */}
               <Toaster />
             </Suspense>
           </ErrorBoundary>

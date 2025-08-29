@@ -1,17 +1,18 @@
-/* 
- * FortiTwin Global Styles
- * 
- * This file contains global styles using Tailwind CSS.
- * Base styles, variables, and component styles are defined here.
+/* * FortiTwin Global Styles
+ * * This file contains the foundational styles for the application, 
+ * including CSS variables for theming and base element styling.
  */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import "tailwindcss";
 
-/* 
- * CSS Variables - Color Scheme
- * Light mode and dark mode variables
+/* * =================================================================
+ * CSS Variables for Theming (Light & Dark Mode)
+ * =================================================================
+ * Defines the color palette for the entire application.
+ * These variables are used by Tailwind CSS and shadcn/ui components.
  */
 @layer base {
   :root {
@@ -52,7 +53,7 @@
     --muted-foreground: 240 5% 64.9%;
     --accent: 240 3.7% 15.9%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
@@ -60,104 +61,41 @@
   }
 }
 
-/* Base styles */
+/* * =================================================================
+ * Base Styles
+ * =================================================================
+ * Applies foundational styles to the body and all elements.
+ */
 @layer base {
   * {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Component styles */
-@layer components {
-  /* Layout components */
-  .container {
-    @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+/* * =================================================================
+ * Custom Scrollbar (Optional Enhancement)
+ * =================================================================
+ * Provides a more modern, subtle scrollbar that matches the theme.
+ */
+@layer utilities {
+  /* For Webkit browsers (Chrome, Safari) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
-  
-  /* Button components and variants */
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background relative overflow-hidden transition-all;
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 10px;
   }
-  
-  .btn::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(45deg, var(--i), var(--j));
-    opacity: 0;
-    transition: 0.5s;
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 10px;
   }
-  
-  .btn::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(45deg, var(--i), var(--j));
-    filter: blur(15px);
-    z-index: -1;
-    opacity: 0;
-    transition: 0.5s;
-  }
-  
-  .btn:hover::before {
-    opacity: 1;
-  }
-  
-  .btn:hover::after {
-    opacity: 0.5;
-  }
-  
-  .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90;
-  }
-  
-  .btn-secondary {
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
-  }
-  
-  .btn-outline {
-    @apply border border-input hover:bg-accent hover:text-accent-foreground;
-  }
-  
-  .btn-ghost {
-    @apply hover:bg-accent hover:text-accent-foreground;
-  }
-  
-  /* Form components */
-  .input {
-    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-  
-  /* Card components */
-  .card {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
-  }
-  
-  .card-header {
-    @apply flex flex-col space-y-1.5 p-6;
-  }
-  
-  .card-title {
-    @apply text-2xl font-semibold leading-none tracking-tight;
-  }
-  
-  .card-description {
-    @apply text-sm text-muted-foreground;
-  }
-  
-  .card-content {
-    @apply p-6 pt-0;
-  }
-  
-  .card-footer {
-    @apply flex items-center p-6 pt-0;
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--accent-foreground));
   }
 }
