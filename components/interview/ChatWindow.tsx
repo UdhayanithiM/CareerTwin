@@ -7,13 +7,11 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { io, Socket } from "socket.io-client";
 
-// Define the structure of a message
 interface Message {
   sender: "user" | "ai";
   text: string;
 }
 
-// It's good practice to define the server events
 interface ServerToClientEvents {
   aiResponse: (message: Message) => void;
 }
@@ -22,7 +20,12 @@ interface ClientToServerEvents {
   sendMessage: (message: Message) => void;
 }
 
-export const ChatWindow = () => {
+// NEW: Define the props for our component, including the callback
+interface ChatWindowProps {
+    onAnalysisUpdate: (analysis: any) => void;
+}
+
+export const ChatWindow = ({ onAnalysisUpdate }: ChatWindowProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: "ai",
@@ -31,29 +34,20 @@ export const ChatWindow = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  
-  // FIX: Initialize useRef with null and update the type to allow null
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
-  // Effect for setting up and tearing down the socket connection
   useEffect(() => {
-    // Connect to the server
     const socket = io();
     socketRef.current = socket;
-
-    // Listen for incoming AI responses
     socket.on("aiResponse", (message) => {
       setMessages((prev) => [...prev, message]);
       setIsLoading(false);
     });
-
-    // Cleanup on component unmount
     return () => {
       socket.disconnect();
     };
   }, []);
 
-  // Effect for auto-scrolling
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
@@ -63,15 +57,34 @@ export const ChatWindow = () => {
     }
   }, [messages]);
 
+  // NEW: Function to call our analysis API
+  const analyzeUserMessage = async (text: string) => {
+      try {
+          const response = await fetch('/api/interview/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text }),
+          });
+          const data = await response.json();
+          if (data.success) {
+              // Call the callback prop to update the parent component's state
+              onAnalysisUpdate(data.analysis);
+          }
+      } catch (error) {
+          console.error("Failed to analyze text:", error);
+      }
+  };
+
   const handleSendMessage = (userMessage: string) => {
-    // The check for socketRef.current is important here
     if (socketRef.current) {
       const message: Message = { sender: "user", text: userMessage };
       setMessages((prev) => [...prev, message]);
       setIsLoading(true);
 
-      // Send the message to the server via WebSocket
       socketRef.current.emit("sendMessage", message);
+
+      // MODIFIED: Call the analysis function every time the user sends a message
+      analyzeUserMessage(userMessage);
     }
   };
 
