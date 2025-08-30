@@ -1,6 +1,6 @@
 // app/api/auth/login/route.ts
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signJwt } from '@/lib/auth';
@@ -12,7 +12,7 @@ const loginUserSchema = z.object({
   password: z.string().min(1, { message: "Password is required" }), // Can't be empty
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
