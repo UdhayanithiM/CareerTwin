@@ -1,19 +1,20 @@
+// app/take-interview/page.tsx
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ArrowLeft, Clock, Download, Smile, Meh, Frown, Gauge, Bot, MessageSquare } from "lucide-react"
+import { ArrowLeft, Clock, Download, Smile, Meh, Frown, Gauge } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
-import { useToast } from "@/hooks/use-toast" // FIX: Imported useToast
+import { useToast } from "@/hooks/use-toast"
+import { ChatWindow } from "@/components/interview/ChatWindow" // Import our new component
 
-// --- Helper Components ---
+// --- Helper Components (InterviewHeader and AnalysisSidebar remain the same) ---
 
 const InterviewHeader = ({ timer, onEndInterview }: { timer: number, onEndInterview: () => void }) => {
     const formatTime = (seconds: number) => {
@@ -96,46 +97,13 @@ const AnalysisSidebar = ({ analysisData }: { analysisData: any }) => {
     );
 };
 
-const InterviewPanel = () => (
-    <Tabs defaultValue="chat" className="h-full flex flex-col">
-        <TabsList className="mx-4 mt-4 grid grid-cols-2">
-            <TabsTrigger value="chat"><MessageSquare className="mr-2 h-4 w-4" />Chat Interview</TabsTrigger>
-            <TabsTrigger value="voice"><Bot className="mr-2 h-4 w-4" />Voice Interview</TabsTrigger>
-        </TabsList>
-        <TabsContent value="chat" className="flex-1 mt-2">
-            <Card className="h-full border-0 rounded-none">
-                <CardContent className="p-0 h-full">
-                    <iframe 
-                        src="https://cdn.botpress.cloud/webchat/v2.4/shareable.html?configUrl=https://files.bpcontent.cloud/2025/05/01/04/20250501042318-OF6QXBDK.json"
-                        className="w-full h-full border-0"
-                        allow="microphone; clipboard-write"
-                        title="Botpress Interview Chat"
-                    />
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="voice" className="flex-1 mt-2">
-            <Card className="h-full border-0 rounded-none">
-                 <CardContent className="p-0 h-full">
-                    <iframe 
-                        src="https://platform.hume.ai/evi/playground?configId=1627a551-5793-4197-b6d0-ade41ef2e0f1"
-                        className="w-full h-full border-0"
-                        allow="camera; microphone; clipboard-write"
-                        title="Hume AI Interview"
-                    />
-                </CardContent>
-            </Card>
-        </TabsContent>
-    </Tabs>
-);
-
 
 // --- Main Page Component ---
 export default function TakeInterviewPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [timer, setTimer] = useState(0);
-  // This state would be driven by real API calls in a full implementation
+  
   const [analysisData] = useState({
       sentiment: { name: "neutral", text: "Your tone is balanced and professional." },
       progress: 10,
@@ -153,7 +121,6 @@ export default function TakeInterviewPage() {
   }, []);
   
   const handleEndInterview = useCallback(() => {
-    // Here you would typically call an API to finalize the interview
     toast({ title: "Interview Completed", description: "Redirecting to your report..." });
     router.push('/report');
   }, [router, toast]);
@@ -164,7 +131,8 @@ export default function TakeInterviewPage() {
         
         <ResizablePanelGroup direction="horizontal" className="flex-1">
             <ResizablePanel defaultSize={70} minSize={50}>
-                <InterviewPanel />
+                {/* THIS IS THE ONLY CHANGE: We are now using our custom ChatWindow */}
+                <ChatWindow />
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={30} minSize={20} className="hidden md:block">

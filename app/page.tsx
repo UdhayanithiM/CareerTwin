@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Video, FileText, BarChart3, Star } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
-
-// ✅ Correct import for Next.js
-import Spline from "@splinetool/react-spline/next";
+// The correct import is without '/next'
+import Spline from "@splinetool/react-spline";
 
 // --- Reusable Feature Card Component ---
 const FeatureCard = ({
@@ -87,7 +86,6 @@ export default function LandingPage() {
               transition={{ duration: 0.8, delay: 0.2, ease: "easeInOut" }}
             >
               <div className="w-full h-full rounded-lg overflow-hidden">
-                {/* ✅ Fixed Spline usage */}
                 <Spline scene="https://prod.spline.design/qIjHRYzrDY-SIfdj/scene.splinecode" />
               </div>
             </motion.div>
@@ -175,4 +173,3 @@ export default function LandingPage() {
     </MainLayout>
   );
 }
- 
