@@ -7,44 +7,78 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Defines the allowed roles in your application
 enum Role {
   STUDENT
   HR
-  OFFICER
   ADMIN
 }
 
 model User {
-  id         String      @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  email      String      @unique
-  password   String
-  role       Role        @default(STUDENT)
-  createdAt  DateTime    @default(now())
-  interviews Interview[]
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  reports   Report[]
 }
 
-model Interview {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  candidateId String     @db.ObjectId
-  candidate   User       @relation(fields: [candidateId], references: [id])
-  status      String     // e.g., "in-progress" or "completed"
-  startedAt   DateTime   @default(now())
-  completedAt DateTime?
-  score       Int?
-  questions   Question[]
+model Assessment {
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  candidateId         String               @db.ObjectId
+  hrId                String               @db.ObjectId
+  status              String
+  createdAt           DateTime             @default(now())
+  technicalAssessment TechnicalAssessment?
+  behavioralInterview BehavioralInterview?
+  report              Report?
 }
 
-model Question {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  interviewId String    @db.ObjectId
-  interview   Interview @relation(fields: [interviewId], references: [id])
-  text        String
-  answer      String?
-  evaluation  String?
+model TechnicalAssessment {
+  id                String     @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId      String     @unique @db.ObjectId
+  assessment        Assessment @relation(fields: [assessmentId], references: [id])
+  status            String
+  code              String?
+  language          String?
+  startedAt         DateTime   @default(now())
+  completedAt       DateTime?
+  evaluationResults Json?
+}
 
-  // --- Fields for Code Assessments ---
-  language    String?   // e.g., "javascript", "python"
-  testCases   Json?     // Stores an array of {input: string, expectedOutput: string}
+model BehavioralInterview {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId String     @unique @db.ObjectId
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  status       String
+  startedAt    DateTime   @default(now())
+  completedAt  DateTime?
+  transcript   Json?
+}
+
+model Report {
+  id              String     @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId    String     @unique @db.ObjectId
+  assessment      Assessment @relation(fields: [assessmentId], references: [id])
+  candidateId     String     @db.ObjectId
+  candidate       User       @relation(fields: [candidateId], references: [id])
+  roleFitScore    Float?
+  cultureFitScore Float?
+  honestyScore    Float?
+  technicalScore  Float?
+  summary         String?
+  createdAt       DateTime   @default(now())
+}
+
+// NEW: A model to store coding questions and their test cases
+model CodingQuestion {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  difficulty  String   // e.g., "Easy", "Medium", "Hard"
+  
+  // Stores an array of {input: any, expectedOutput: any}
+  testCases   Json
+  
+  createdAt   DateTime @default(now())
 }

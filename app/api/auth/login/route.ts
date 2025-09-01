@@ -1,23 +1,19 @@
-// app/api/auth/login/route.ts
-
 import { NextResponse, type NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signJwt } from '@/lib/auth';
-import { z } from 'zod'; // <-- Import Zod
+import { z } from 'zod';
 
-// 1. Define a schema for login data
 const loginUserSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(1, { message: "Password is required" }), // Can't be empty
+  password: z.string().min(1, { message: "Password is required" }),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    // 2. Validate the request body
     const validation = loginUserSchema.safeParse(body);
+
     if (!validation.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: validation.error.flatten().fieldErrors },
@@ -26,8 +22,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = validation.data;
-
     const user = await prisma.user.findUnique({ where: { email } });
+
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
@@ -37,9 +33,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Generate JWT
     const token = signJwt({
-      id: user.id,
+      id: user.id, // ✅ FIXED
       email: user.email,
       role: user.role,
     });
@@ -49,13 +44,12 @@ export async function POST(request: NextRequest) {
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
 
-    // Set the secure, HttpOnly cookie
-    response.cookies.set('token', token, {
+    response.cookies.set('accessToken', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;
