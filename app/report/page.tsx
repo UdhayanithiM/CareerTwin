@@ -1,32 +1,26 @@
+// app/report/page.tsx
+
 "use client"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Home, Download, Share, ArrowLeft, TrendingUp, Target, Star, Trophy } from "lucide-react"
+import { Download, Share, ArrowLeft, TrendingUp, Target, Star, Trophy } from "lucide-react"
 import { ReportChart } from "@/components/report-chart"
 import { useRef, useState } from "react"
-import { useToast } from "@/components/ui/use-toast"
-import { Progress } from "@/components/ui/progress"
+import { toast } from "sonner" // <-- FIX: Using sonner for toasts
+import html2canvas from 'html2canvas'; // <-- FIX: Corrected import
+import jsPDF from 'jspdf';
 
-// Helper component for radial progress
+// RadialProgress component remains the same
 const RadialProgress = ({ value }: { value: number }) => {
-    const circumference = 2 * Math.PI * 45; // 2 * pi * r
+    const circumference = 2 * Math.PI * 45;
     const offset = circumference - (value / 100) * circumference;
-
     return (
         <div className="relative h-40 w-40">
             <svg className="transform -rotate-90" width="100%" height="100%" viewBox="0 0 100 100">
-                <circle
-                    className="text-muted"
-                    strokeWidth="10"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="45"
-                    cx="50"
-                    cy="50"
-                />
+                <circle className="text-muted" strokeWidth="10" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
                 <motion.circle
                     className="text-primary"
                     strokeWidth="10"
@@ -55,20 +49,16 @@ const RadialProgress = ({ value }: { value: number }) => {
 export default function ReportPage() {
   const reportRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const { toast } = useToast()
 
   const generatePDF = async () => {
     if (!reportRef.current) return
     
     setIsGenerating(true)
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const { jsPDF } = await import('jspdf')
-      
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: window.getComputedStyle(document.body).getPropertyValue('--background-color') || '#ffffff',
+        backgroundColor: window.getComputedStyle(document.body).getPropertyValue('background') || '#ffffff',
       })
       
       const imgData = canvas.toDataURL('image/png')
@@ -80,16 +70,13 @@ export default function ReportPage() {
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
       pdf.save('FortiTwin_Report.pdf')
       
-      toast({
-        title: "Success!",
+      toast.success("Success!", {
         description: "Your report has been downloaded.",
       })
     } catch (error) {
       console.error("Error generating PDF:", error)
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to generate PDF. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setIsGenerating(false)
@@ -182,7 +169,7 @@ export default function ReportPage() {
                                 <RadialProgress value={87} />
                             </CardContent>
                         </Card>
-                         <Card>
+                          <Card>
                             <CardHeader><CardTitle>Final Assessment</CardTitle></CardHeader>
                             <CardContent>
                                 <p className="text-muted-foreground">

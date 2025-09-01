@@ -1,3 +1,5 @@
+// app/signup/page.tsx
+
 "use client"
 
 import type React from "react"
@@ -13,9 +15,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { ArrowRight, Lock, Mail, User, Gauge } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { ModeToggle } from "@/components/mode-toggle"
-import { useAuthStore } from "@/stores/authStore" // Import the new Zustand store
+import { useAuthStore } from "@/stores/authStore"
 
 const SignupIllustration = () => (
     <div className="w-full h-full">
@@ -36,47 +38,42 @@ export default function SignupPage() {
   const [password, setPassword] = useState("")
   const [role, setRole] = useState("STUDENT")
   const [acceptTerms, setAcceptTerms] = useState(false)
-  
   const router = useRouter()
-  const { toast } = useToast()
   
-  // Use the Zustand store for state and actions
   const { register, isLoading, error } = useAuthStore();
 
-  // Show a toast notification when an error occurs
   useEffect(() => {
     if (error) {
-      toast({
-        title: "Registration Failed",
+      toast.error("Registration Failed", {
         description: error,
-        variant: "destructive",
       });
     }
-  }, [error, toast]);
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!acceptTerms) {
-      toast({ title: "Error", description: "You must accept the terms and conditions.", variant: "destructive" });
+      toast.error("Error", { 
+        description: "You must accept the terms and conditions." 
+      });
       return;
     }
     
     const success = await register({ name, email, password, role });
     
     if (success) {
-      toast({ title: "Account Created!", description: "Welcome to FortiTwin. You can now log in." });
+      toast.success("Account Created!", {
+        description: "Welcome to FortiTwin. You can now log in.",
+      });
       router.push("/login");
     }
   };
 
   return (
     <div className="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
-        {/* --- Left Column: Illustration --- */}
         <div className="hidden lg:flex bg-muted items-center justify-center">
             <SignupIllustration />
         </div>
-
-        {/* --- Right Column: Form --- */}
         <div className="flex flex-col items-center justify-center p-6 sm:p-8 overflow-y-auto">
             <div className="absolute top-6 right-6 flex items-center gap-4">
                 <ModeToggle />
@@ -99,9 +96,9 @@ export default function SignupPage() {
                             <CardTitle className="text-2xl">Create an Account</CardTitle>
                             <CardDescription>Start your interview preparation journey today.</CardDescription>
                         </CardHeader>
-
                         <CardContent>
                             <form onSubmit={handleSubmit} className="space-y-4">
+                                {/* Form fields for name, email, password, role */}
                                 <div className="space-y-2">
                                     <Label htmlFor="name">Full Name</Label>
                                     <div className="relative">
@@ -136,8 +133,10 @@ export default function SignupPage() {
                                         </div>
                                     </RadioGroup>
                                 </div>
+                                
                                 <div className="flex items-start space-x-2 pt-2">
-                                    <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(checked as boolean)} />
+                                    {/* <-- FIX: Added the 'boolean' type to the 'checked' parameter --> */}
+                                    <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(checked: boolean) => setAcceptTerms(checked)} />
                                     <div className="grid gap-1.5 leading-none">
                                         <Label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">
                                             I agree to the{" "}

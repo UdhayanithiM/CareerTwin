@@ -11,12 +11,11 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { ArrowRight, Lock, Mail, Github, Linkedin, Twitter, Gauge } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner" // <-- UPDATED: Import from sonner
 import { ModeToggle } from "@/components/mode-toggle"
-import { useAuthStore } from "@/stores/authStore" // Import our Zustand store
+import { useAuthStore } from "@/stores/authStore"
 
 const LoginIllustration = () => (
     <div className="w-full h-full">
@@ -34,24 +33,19 @@ const LoginIllustration = () => (
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState("student") // Default role selection
-  
   const router = useRouter()
-  const { toast } = useToast()
   
-  // Use the Zustand store for state and actions
   const { login, isLoading, error } = useAuthStore();
 
   // Show a toast notification on error
   useEffect(() => {
     if (error) {
-      toast({
-        title: "Login Failed",
+      // <-- UPDATED: Use sonner's toast.error function
+      toast.error("Login Failed", {
         description: error,
-        variant: "destructive",
       });
     }
-  }, [error, toast]);
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,12 +53,14 @@ export default function LoginPage() {
     const success = await login({ email, password });
     
     if (success) {
-      toast({ title: "Login Successful!", description: "Welcome back to FortiTwin." });
-      // The role from the form is just for the UI, the actual role comes from the database.
-      // We will redirect based on the user's actual role returned from the API.
+      // <-- UPDATED: Use sonner's toast.success function
+      toast.success("Login Successful!", {
+        description: "Welcome back to FortiTwin.",
+      });
       const user = useAuthStore.getState().user;
       if (user) {
-         router.push(user.role === "HR" ? "/hr-dashboard" : "/dashboard");
+         // Redirect based on the actual role from the database
+         router.push(user.role.toUpperCase() === "HR" ? "/hr-dashboard" : "/dashboard");
       }
     }
   };
@@ -101,7 +97,7 @@ export default function LoginPage() {
                         </CardHeader>
 
                         <CardContent>
-                            <form onSubmit={handleSubmit} className="space-y-4">
+                            <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Email</Label>
                                     <div className="relative">
@@ -118,19 +114,6 @@ export default function LoginPage() {
                                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input id="password" type="password" placeholder="••••••••" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Sign in as</Label>
-                                    <RadioGroup value={role} onValueChange={setRole} className="flex gap-4 pt-1">
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="student" id="student" />
-                                            <Label htmlFor="student" className="font-normal cursor-pointer">Student</Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="hr" id="hr" />
-                                            <Label htmlFor="hr" className="font-normal cursor-pointer">HR Professional</Label>
-                                        </div>
-                                    </RadioGroup>
                                 </div>
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? "Signing in..." : "Sign In"}

@@ -11,7 +11,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Suspense } from "react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner";
 import type { Metadata, Viewport } from "next";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +79,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Favicon and manifest links are correctly placed here */}
+        {/* FIX: All icon and manifest links are now correctly placed in the head */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
@@ -87,14 +87,14 @@ export default function RootLayout({
       <body className={cn("min-h-screen bg-background font-sans antialiased scroll-smooth", fontSans.variable)}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system" // Changed to 'system' for better user experience
+          defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
               {children}
-              <Toaster />
+              <Toaster richColors />
             </Suspense>
           </ErrorBoundary>
         </ThemeProvider>

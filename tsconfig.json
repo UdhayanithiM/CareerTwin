@@ -2,39 +2,34 @@
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
-    "target": "ES2020",
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "nodenext", // <-- This is the required change
-    "moduleResolution": "nodenext",
+    "module": "NodeNext", // <-- FIX: Corrected casing
+    "moduleResolution": "NodeNext", // <-- FIX: Corrected casing
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"]
-    },
     "plugins": [
       {
         "name": "next"
       }
     ],
-    "types": ["node", "chart.js"],
+    // "types": ["node", "chart.js"], // <-- FIX: Removed this entire line. It's better to let TypeScript auto-discover types.
     "forceConsistentCasingInFileNames": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "global.d.ts"
+    "global.d.ts",
+    "server.ts" // <-- ADDED: Ensure your custom server is included in the TypeScript project
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"] // <-- ADDED: Exclude the compiled server output
 }

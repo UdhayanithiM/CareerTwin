@@ -20,7 +20,7 @@ model User {
   name       String
   email      String      @unique
   password   String
-  role       Role        @default(STUDENT) // Upgraded to use the Role enum
+  role       Role        @default(STUDENT)
   createdAt  DateTime    @default(now())
   interviews Interview[]
 }
@@ -29,7 +29,7 @@ model Interview {
   id          String     @id @default(auto()) @map("_id") @db.ObjectId
   candidateId String     @db.ObjectId
   candidate   User       @relation(fields: [candidateId], references: [id])
-  status      String     // "in-progress" or "completed"
+  status      String     // e.g., "in-progress" or "completed"
   startedAt   DateTime   @default(now())
   completedAt DateTime?
   score       Int?
@@ -43,4 +43,8 @@ model Question {
   text        String
   answer      String?
   evaluation  String?
+
+  // --- Fields for Code Assessments ---
+  language    String?   // e.g., "javascript", "python"
+  testCases   Json?     // Stores an array of {input: string, expectedOutput: string}
 }

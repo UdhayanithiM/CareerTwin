@@ -1,110 +1,34 @@
+// components/report-chart.tsx
+
 "use client"
 
-import { useEffect, useRef } from "react"
-import { Chart, registerables } from "chart.js"
+import { useTheme } from "next-themes";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 
-Chart.register(...registerables)
+const data = [
+  { subject: 'Communication', A: 92, B: 70, fullMark: 100 },
+  { subject: 'Problem Solving', A: 85, B: 65, fullMark: 100 },
+  { subject: 'Adaptability', A: 70, B: 60, fullMark: 100 },
+  { subject: 'Leadership', A: 65, B: 55, fullMark: 100 },
+  { subject: 'Emotional Intel.', A: 78, B: 60, fullMark: 100 },
+  { subject: 'Teamwork', A: 80, B: 65, fullMark: 100 },
+];
 
 export function ReportChart() {
-  const chartRef = useRef<HTMLCanvasElement>(null)
-  const chartInstance = useRef<Chart | null>(null)
+  const { theme } = useTheme();
+  const tickColor = theme === 'dark' ? '#888' : '#333';
+  const primaryColor = 'hsl(var(--primary))';
 
-  useEffect(() => {
-    if (!chartRef.current) return
-
-    // Destroy existing chart
-    if (chartInstance.current) {
-      chartInstance.current.destroy()
-    }
-
-    // Create new chart
-    const ctx = chartRef.current.getContext("2d")
-    if (!ctx) return
-
-    chartInstance.current = new Chart(ctx, {
-      type: "radar",
-      data: {
-        labels: [
-          "Communication",
-          "Problem Solving",
-          "Adaptability",
-          "Leadership",
-          "Emotional Intelligence",
-          "Teamwork",
-        ],
-        datasets: [
-          {
-            label: "Your Profile",
-            data: [92, 85, 70, 65, 78, 80],
-            backgroundColor: "rgba(0, 0, 0, 0.2)",
-            borderColor: "rgba(0, 0, 0, 1)",
-            borderWidth: 2,
-            pointBackgroundColor: "#000",
-            pointBorderColor: "#fff",
-            pointHoverBackgroundColor: "#fff",
-            pointHoverBorderColor: "#000",
-          },
-          {
-            label: "Average Candidate",
-            data: [70, 65, 60, 55, 60, 65],
-            backgroundColor: "rgba(200, 200, 200, 0.2)",
-            borderColor: "rgba(200, 200, 200, 1)",
-            borderWidth: 2,
-            pointBackgroundColor: "#ccc",
-            pointBorderColor: "#fff",
-            pointHoverBackgroundColor: "#fff",
-            pointHoverBorderColor: "#ccc",
-          },
-        ],
-      },
-      options: {
-        scales: {
-          r: {
-            beginAtZero: true,
-            max: 100,
-            ticks: {
-              display: false,
-            },
-            grid: {
-              color: "rgba(0, 0, 0, 0.1)",
-            },
-            angleLines: {
-              color: "rgba(0, 0, 0, 0.1)",
-            },
-            pointLabels: {
-              color: "#000",
-              font: {
-                size: 12,
-              },
-            },
-          },
-        },
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: {
-              boxWidth: 12,
-              padding: 20,
-              font: {
-                size: 12,
-              },
-            },
-          },
-        },
-        elements: {
-          line: {
-            tension: 0.2,
-          },
-        },
-      },
-    })
-
-    return () => {
-      if (chartInstance.current) {
-        chartInstance.current.destroy()
-      }
-    }
-  }, [])
-
-  return <canvas ref={chartRef} />
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
+        <PolarGrid />
+        <PolarAngleAxis dataKey="subject" tick={{ fill: tickColor, fontSize: 12 }} />
+        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+        <Radar name="Your Profile" dataKey="A" stroke={primaryColor} fill={primaryColor} fillOpacity={0.6} />
+        <Radar name="Average Candidate" dataKey="B" stroke="#8884d8" fill="#8884d8" fillOpacity={0.4} />
+        <Legend />
+      </RadarChart>
+    </ResponsiveContainer>
+  );
 }
