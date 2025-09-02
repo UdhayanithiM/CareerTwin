@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       id: user.id, // ✅ FIXED
       email: user.email,
       role: user.role,
+      name: user.name,
     });
 
     const response = NextResponse.json({

@@ -1,3 +1,5 @@
+// app/hr-dashboard/page.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,44 +19,56 @@ import {
   Users,
   Search,
   MoreHorizontal,
-  ChevronUp,
-  ChevronDown,
   FilePlus2,
   Send,
-  Loader2, // A nice spinner icon
-  AlertTriangle, // An icon for errors
+  AlertTriangle, 
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { ModeToggle } from '@/components/mode-toggle';
-import { Skeleton } from '@/components/ui/skeleton'; // For loading state
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuthStore } from '@/stores/authStore';
+import { useRouter } from 'next/navigation';
 
-// --- NEW: Define the data structure from our API ---
+
 type Candidate = {
   id: string;
   name: string;
   email: string;
-  createdAt: string; // This will be an ISO date string
+  createdAt: string; 
 };
 
-// --- Main Dashboard Component ---
 export default function HrDashboardUpgraded() {
-  // --- STATE MANAGEMENT ---
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'candidates'>('candidates');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
-  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch('/api/hr/candidates');
-        if (!response.ok) {
-          throw new Error('Failed to fetch candidates');
+        
+        // =================================================================
+        // THE FIX: Fetch data and include credentials for authentication
+        // =================================================================
+        const response = await fetch('/api/hr/candidates', {
+            credentials: 'include', // Sends the auth cookie
+        });
+        
+        if (response.status === 401 || response.status === 403) {
+            // If unauthorized or forbidden, redirect to login
+            router.push('/login');
+            return;
         }
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch candidates');
+        }
+        
         const data: Candidate[] = await response.json();
         setCandidates(data);
       } catch (err) {
@@ -64,21 +78,24 @@ export default function HrDashboardUpgraded() {
       }
     };
 
-    fetchCandidates();
-  }, []);
+    // We only fetch if the user is logged in and is an HR professional
+    if (user?.role === 'HR') {
+        fetchCandidates();
+    } else if (!user) {
+        // If user info isn't loaded yet, we can wait or redirect.
+        // For now, if the auth state is clear but there's no user, redirecting is safe.
+        router.push('/login');
+    }
+  }, [user, router]);
 
-  // --- DERIVED DATA ---
   const filteredCandidates = candidates.filter(
     (c) =>
       c.name.toLowerCase().includes(query.toLowerCase()) ||
       c.email.toLowerCase().includes(query.toLowerCase())
   );
 
-  // --- UI RENDERING ---
   const renderCandidateRows = () => {
-    // 1. Loading State
     if (isLoading) {
-      // Show skeleton loaders matching the table structure
       return Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={`loading-${i}`}>
           <TableCell><Skeleton className="h-5 w-32" /></TableCell>
@@ -89,7 +106,6 @@ export default function HrDashboardUpgraded() {
       ));
     }
 
-    // 2. Error State
     if (error) {
       return (
         <TableRow>
@@ -104,7 +120,6 @@ export default function HrDashboardUpgraded() {
       );
     }
 
-    // 3. No Data State
     if (filteredCandidates.length === 0) {
       return (
         <TableRow>
@@ -115,7 +130,6 @@ export default function HrDashboardUpgraded() {
       );
     }
 
-    // 4. Success State
     return filteredCandidates.map((candidate) => (
       <TableRow key={candidate.id}>
         <TableCell className="font-medium">{candidate.name}</TableCell>
@@ -131,7 +145,6 @@ export default function HrDashboardUpgraded() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              {/* These are now functional buttons, preparing for future logic */}
               <DropdownMenuItem onClick={() => alert(`Assigning assessment to ${candidate.name}`)}>
                 <FilePlus2 className="mr-2 h-4 w-4" />
                 Assign Assessment
@@ -154,7 +167,6 @@ export default function HrDashboardUpgraded() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar - Remains the same */}
       <aside className="hidden md:flex w-72 flex-col border-r bg-card fixed inset-y-0">
          <div className="p-5 border-b">
            <h2 className="font-extrabold text-2xl">
@@ -172,12 +184,9 @@ export default function HrDashboardUpgraded() {
              Candidates
            </Button>
          </nav>
-      </aside>
-
-      {/* Main content */}
+       </aside>
       <main className="flex-1 md:ml-72">
         <div className="p-6 md:pt-8 md:px-8 max-w-7xl mx-auto">
-          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center mb-6 md:mb-8 justify-between gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold">Candidate Management</h1>
@@ -186,15 +195,14 @@ export default function HrDashboardUpgraded() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-                <ModeToggle />
-                <Button>
-                    <FilePlus2 className="mr-2 h-4 w-4" />
-                    Assign New Assessment
-                </Button>
+              <ModeToggle />
+              <Button>
+                <FilePlus2 className="mr-2 h-4 w-4" />
+                Assign New Assessment
+              </Button>
             </div>
           </div>
 
-          {/* Candidates Table Card */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
