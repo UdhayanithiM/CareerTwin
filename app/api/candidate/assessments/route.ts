@@ -5,26 +5,40 @@ import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
   const cookieStore = cookies();
-  const accessToken = cookieStore.get('accessToken')?.value;
+  // Corrected to use 'token' which is set on login
+  const token = cookieStore.get('token')?.value;
 
-  if (!accessToken) {
+  if (!token) {
     return NextResponse.json({ error: 'Authentication token not found. Please log in.' }, { status: 401 });
   }
 
-  const decoded = verifyJwt(accessToken);
+  const decoded = verifyJwt(token);
 
-  if (!decoded || typeof decoded.id !== 'string') { // ✅ FIXED
+  if (!decoded || typeof decoded.id !== 'string') {
     return NextResponse.json({ error: 'Invalid session. Please log in again.' }, { status: 401 });
   }
 
-  const userId = decoded.id; // ✅ FIXED
+  const userId = decoded.id;
 
   try {
     const assessments = await prisma.assessment.findMany({
       where: { candidateId: userId },
-      include: {
-        technicalAssessment: true,
-        report: true,
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        technicalAssessment: {
+          select: {
+            id: true,
+            status: true,
+            evaluationResults: true,
+          }
+        },
+        report: {
+          select: {
+            id: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });

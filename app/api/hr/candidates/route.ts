@@ -1,5 +1,3 @@
-// app/api/hr/candidates/route.ts
-
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
@@ -7,35 +5,29 @@ import { cookies } from 'next/headers';
 
 export async function GET() {
   const cookieStore = cookies();
-  const accessToken = cookieStore.get('accessToken')?.value;
+  const token = cookieStore.get('token')?.value;
 
-  if (!accessToken) {
+  if (!token) {
     return NextResponse.json({ error: 'Authentication token not found.' }, { status: 401 });
   }
 
-  const decoded = verifyJwt(accessToken);
+  // ✅ FIXED: Added the 'await' keyword to get the result from the Promise
+  const decoded = await verifyJwt(token);
 
-  // Ensure the user is authenticated and has the 'HR' role
-  if (!decoded || decoded.role !== 'HR') {
-    return NextResponse.json({ error: 'Access denied. You must be an HR professional to view this page.' }, { status: 403 });
+  if (!decoded || decoded.role.toUpperCase() !== 'HR') {
+    return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
   }
 
   try {
-    // Fetch all users with the 'STUDENT' role
     const candidates = await prisma.user.findMany({
       where: {
         role: 'STUDENT',
       },
-      // Select only the necessary fields to send to the client
       select: {
         id: true,
         name: true,
         email: true,
         createdAt: true,
-        // You can include related data here in the future, like so:
-        // reports: {
-        //   select: { id: true, technicalScore: true }
-        // }
       },
       orderBy: {
         createdAt: 'desc',

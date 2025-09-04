@@ -1,19 +1,18 @@
-// app/login/page.tsx
-
 "use client"
 
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+// ❌ We no longer need useRouter here
+// import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { ArrowRight, Lock, Mail, Github, Linkedin, Twitter, Gauge } from "lucide-react"
-import { toast } from "sonner" // <-- UPDATED: Import from sonner
+import { toast } from "sonner"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useAuthStore } from "@/stores/authStore"
 
@@ -33,19 +32,18 @@ const LoginIllustration = () => (
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const router = useRouter()
+  // ❌ const router = useRouter()
   
-  const { login, isLoading, error } = useAuthStore();
+  const { login, isLoading, error, clearError } = useAuthStore();
 
-  // Show a toast notification on error
   useEffect(() => {
     if (error) {
-      // <-- UPDATED: Use sonner's toast.error function
       toast.error("Login Failed", {
         description: error,
       });
+      clearError();
     }
-  }, [error]);
+  }, [error, clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,31 +51,37 @@ export default function LoginPage() {
     const success = await login({ email, password });
     
     if (success) {
-      // <-- UPDATED: Use sonner's toast.success function
       toast.success("Login Successful!", {
-        description: "Welcome back to FortiTwin.",
+        description: "Welcome back to FortiTwin. Redirecting...",
       });
       const user = useAuthStore.getState().user;
       if (user) {
-         // Redirect based on the actual role from the database
-         router.push(user.role.toUpperCase() === "HR" ? "/hr-dashboard" : "/dashboard");
+         // ✅ FIXED: Use window.location.href for a full page reload
+         // This ensures the cookie is set before the next page loads.
+         switch (user.role.toUpperCase()) {
+            case "ADMIN":
+                window.location.href = '/admin';
+                break;
+            case "HR":
+                window.location.href = '/hr-dashboard';
+                break;
+            default:
+                window.location.href = '/dashboard';
+                break;
+         }
       }
     }
   };
 
   return (
     <div className="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
-        {/* --- Left Column: Illustration --- */}
         <div className="hidden lg:flex bg-muted items-center justify-center">
             <LoginIllustration />
         </div>
-
-        {/* --- Right Column: Form --- */}
         <div className="flex flex-col items-center justify-center p-6 sm:p-8 overflow-y-auto">
             <div className="absolute top-6 right-6 flex items-center gap-4">
                 <ModeToggle />
             </div>
-            
             <div className="w-full max-w-md my-auto">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -93,9 +97,8 @@ export default function LoginPage() {
                                 </h1>
                             </div>
                             <CardTitle className="text-2xl">Welcome Back!</CardTitle>
-                            <CardDescription>Sign in to continue your interview journey.</CardDescription>
+                            <CardDescription>Sign in to continue your journey.</CardDescription>
                         </CardHeader>
-
                         <CardContent>
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
@@ -121,7 +124,6 @@ export default function LoginPage() {
                                 </Button>
                             </form>
                         </CardContent>
-
                         <CardFooter className="flex-col gap-4">
                             <div className="relative w-full">
                                 <div className="absolute inset-0 flex items-center">

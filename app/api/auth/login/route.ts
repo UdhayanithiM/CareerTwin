@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { signJwt } from '@/lib/auth';
+import { signJwt } from '@/lib/auth'; // Uses the new jose-based function
 import { z } from 'zod';
 
 const loginUserSchema = z.object({
@@ -15,10 +15,7 @@ export async function POST(request: NextRequest) {
     const validation = loginUserSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: validation.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
     const { email, password } = validation.data;
@@ -33,8 +30,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    const token = signJwt({
-      id: user.id, // ✅ FIXED
+    // This now calls the async signJwt function
+    const token = await signJwt({
+      id: user.id,
       email: user.email,
       role: user.role,
       name: user.name,
@@ -45,7 +43,7 @@ export async function POST(request: NextRequest) {
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
 
-    response.cookies.set('accessToken', token, {
+    response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',

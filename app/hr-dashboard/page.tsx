@@ -1,8 +1,7 @@
 // app/hr-dashboard/page.tsx
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -13,6 +12,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+  } from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,57 +35,78 @@ import {
   Search,
   MoreHorizontal,
   FilePlus2,
-  Send,
-  AlertTriangle, 
+  AlertTriangle,
 } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/use-toast';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
-
+// Define our data types
 type Candidate = {
   id: string;
   name: string;
   email: string;
-  createdAt: string; 
+  createdAt: string;
+};
+
+type CodingQuestion = {
+    id: string;
+    title: string;
+    difficulty: string;
 };
 
 export default function HrDashboardUpgraded() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'overview' | 'candidates'>('candidates');
+  const { toast } = useToast();
+
+  // State for data
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [questions, setQuestions] = useState<CodingQuestion[]>([]);
+  
+  // State for UI
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // State for the dialog form
+  const [selectedCandidate, setSelectedCandidate] = useState('');
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   useEffect(() => {
-    const fetchCandidates = async () => {
+    const fetchData = async () => {
+      // Don't fetch if user is not verified as HR
+      if (user?.role !== 'HR') {
+        // This check prevents flashing the dashboard before redirect
+        setIsLoading(false);
+        return;
+      }
       try {
         setIsLoading(true);
-        setError(null);
-        
-        // =================================================================
-        // THE FIX: Fetch data and include credentials for authentication
-        // =================================================================
-        const response = await fetch('/api/hr/candidates', {
-            credentials: 'include', // Sends the auth cookie
-        });
-        
-        if (response.status === 401 || response.status === 403) {
-            // If unauthorized or forbidden, redirect to login
+        const [candsRes, questsRes] = await Promise.all([
+            fetch('/api/hr/candidates', { credentials: 'include' }),
+            fetch('/api/admin/questions', { credentials: 'include' })
+        ]);
+
+        if (candsRes.status === 401 || candsRes.status === 403) {
             router.push('/login');
             return;
         }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch candidates');
-        }
+        if (!candsRes.ok || !questsRes.ok) throw new Error("Failed to fetch page data");
         
-        const data: Candidate[] = await response.json();
-        setCandidates(data);
+        const candsData = await candsRes.json();
+        const questsData = await questsRes.json();
+
+        setCandidates(candsData);
+        setQuestions(questsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
@@ -78,15 +114,42 @@ export default function HrDashboardUpgraded() {
       }
     };
 
-    // We only fetch if the user is logged in and is an HR professional
-    if (user?.role === 'HR') {
-        fetchCandidates();
-    } else if (!user) {
-        // If user info isn't loaded yet, we can wait or redirect.
-        // For now, if the auth state is clear but there's no user, redirecting is safe.
-        router.push('/login');
+    if (user) { // Only fetch when user object is available
+        fetchData();
+    } else {
+       // If no user, redirect. This handles cases where auth state is cleared.
+       router.push('/login');
     }
   }, [user, router]);
+
+  const handleCreateAssessment = async () => {
+    setIsSubmitting(true);
+    try {
+        const response = await fetch('/api/hr/assessments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidateId: selectedCandidate,
+                questionIds: selectedQuestions,
+            }),
+        });
+
+        if (!response.ok) {
+            const result = await response.json();
+            throw new Error(result.error || "Failed to create assessment");
+        }
+        
+        toast({ title: "Success", description: "New assessment has been assigned."});
+        setSelectedCandidate('');
+        setSelectedQuestions([]);
+        setIsDialogOpen(false);
+
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive"});
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
 
   const filteredCandidates = candidates.filter(
     (c) =>
@@ -136,55 +199,34 @@ export default function HrDashboardUpgraded() {
         <TableCell>{candidate.email}</TableCell>
         <TableCell>{new Date(candidate.createdAt).toLocaleDateString()}</TableCell>
         <TableCell className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-haspopup="true" size="icon" variant="ghost">
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Actions for {candidate.name}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => alert(`Assigning assessment to ${candidate.name}`)}>
-                <FilePlus2 className="mr-2 h-4 w-4" />
-                Assign Assessment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => alert(`Sending invite to ${candidate.name}`)}>
-                <Send className="mr-2 h-4 w-4" />
-                Send Invite
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                Delete Candidate
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={() => {
+              setSelectedCandidate(candidate.id);
+              setIsDialogOpen(true);
+          }}>
+            <FilePlus2 className="mr-2 h-4 w-4" />
+            Assign
+          </Button>
         </TableCell>
       </TableRow>
     ));
   };
 
-
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden md:flex w-72 flex-col border-r bg-card fixed inset-y-0">
-         <div className="p-5 border-b">
-           <h2 className="font-extrabold text-2xl">
-             <span className="text-primary">Forti</span>Twin
-           </h2>
-           <p className="text-xs text-muted-foreground mt-1">HR Dashboard</p>
-         </div>
-         <nav className="p-4 space-y-2 flex-1">
-           <Button variant={activeTab === 'overview' ? 'secondary' : 'ghost'} className="w-full justify-start" onClick={() => setActiveTab('overview')}>
-             <Users className="mr-2 h-4 w-4" />
-             Overview
-           </Button>
-           <Button variant={activeTab === 'candidates' ? 'secondary' : 'ghost'} className="w-full justify-start" onClick={() => setActiveTab('candidates')}>
-             <Users className="mr-2 h-4 w-4" />
-             Candidates
-           </Button>
-         </nav>
-       </aside>
+        <div className="p-5 border-b">
+          <h2 className="font-extrabold text-2xl">
+            <span className="text-primary">Forti</span>Twin
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">HR Dashboard</p>
+        </div>
+        <nav className="p-4 space-y-2 flex-1">
+          <Button variant={'secondary'} className="w-full justify-start">
+            <Users className="mr-2 h-4 w-4" />
+            Candidates
+          </Button>
+        </nav>
+      </aside>
       <main className="flex-1 md:ml-72">
         <div className="p-6 md:pt-8 md:px-8 max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center mb-6 md:mb-8 justify-between gap-4">
@@ -196,13 +238,58 @@ export default function HrDashboardUpgraded() {
             </div>
             <div className="flex items-center gap-2">
               <ModeToggle />
-              <Button>
-                <FilePlus2 className="mr-2 h-4 w-4" />
-                Assign New Assessment
-              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <FilePlus2 className="mr-2 h-4 w-4" />
+                        Create Assessment
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Create New Assessment</DialogTitle>
+                        <DialogDescription>
+                            Assign a technical assessment to a candidate.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="candidate">Candidate</Label>
+                            <Select value={selectedCandidate} onValueChange={setSelectedCandidate}>
+                                <SelectTrigger><SelectValue placeholder="Select a candidate..." /></SelectTrigger>
+                                <SelectContent>
+                                    {candidates.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.email})</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Coding Questions</Label>
+                            <p className="text-sm text-muted-foreground">Select one or more questions for this assessment.</p>
+                            <div className="max-h-48 overflow-y-auto space-y-2 rounded-md border p-2">
+                                {questions.map(q => (
+                                    <div key={q.id} className={`flex items-center justify-between p-2 rounded-md cursor-pointer ${selectedQuestions.includes(q.id) ? 'bg-primary/10' : ''}`}
+                                        onClick={() => {
+                                            setSelectedQuestions(prev => 
+                                                prev.includes(q.id) ? prev.filter(id => id !== q.id) : [...prev, q.id]
+                                            );
+                                        }}
+                                    >
+                                        <span>{q.title}</span>
+                                        <Badge variant="secondary">{q.difficulty}</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handleCreateAssessment} disabled={isSubmitting || !selectedCandidate || selectedQuestions.length === 0}>
+                            {isSubmitting ? "Assigning..." : "Assign Assessment"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
-
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -223,7 +310,6 @@ export default function HrDashboardUpgraded() {
                 </div>
               </div>
             </CardHeader>
-
             <CardContent>
               <div className="rounded-md border">
                 <Table>

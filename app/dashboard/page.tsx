@@ -25,12 +25,11 @@ type TechnicalAssessment = {
 
 type Report = {
   id: string;
-  technicalScore?: number | null;
 };
 
 type Assessment = {
   id: string;
-  status: string;
+  status: string; // This is the main status we will use: "PENDING" or "COMPLETED"
   createdAt: string;
   technicalAssessment: TechnicalAssessment | null;
   report: Report | null;
@@ -64,16 +63,11 @@ export default function StudentDashboard() {
     const fetchAssessments = async () => {
       try {
         setIsLoading(true);
-        
-        // =================================================================
-        // THE ONLY FIX NEEDED IS ADDING `credentials: 'include'` HERE
-        // This tells the browser to send the authentication cookie with the request.
-        // =================================================================
         const response = await fetch('/api/candidate/assessments', {
             credentials: 'include',
         });
         
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
           router.push('/login');
           return;
         }
@@ -92,16 +86,20 @@ export default function StudentDashboard() {
         setIsLoading(false);
       }
     };
-    fetchAssessments();
-  }, [router]);
+    if (user) {
+        fetchAssessments();
+    } else {
+        // This handles the case where the component mounts before the auth store is hydrated
+        // We'll wait for the user object to be available.
+    }
+  }, [user, router]);
 
-  // Derived state for tabs
-  const upcomingAssessments = assessments.filter(a => a.technicalAssessment?.status !== 'evaluated');
-  const completedAssessments = assessments.filter(a => a.technicalAssessment?.status === 'evaluated');
+  // ✅ CORRECTED: Derived state for tabs based on the parent Assessment status
+  const upcomingAssessments = assessments.filter(a => a.status === 'PENDING');
+  const completedAssessments = assessments.filter(a => a.status === 'COMPLETED');
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
-        {/* Header */}
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container flex h-16 items-center justify-between">
                 <Link href="/" className="flex items-center gap-2">
@@ -126,8 +124,6 @@ export default function StudentDashboard() {
                 </div>
             </div>
         </header>
-
-        {/* --- Main Content --- */}
         <main className="flex-1">
             <motion.div 
                 className="container py-8 space-y-8"
@@ -135,17 +131,12 @@ export default function StudentDashboard() {
                 animate="visible"
                 variants={containerVariants}
             >
-                {/* Welcome Header */}
                 <motion.div variants={itemVariants}>
                     <h1 className="text-3xl font-bold">Welcome back, {userName}!</h1>
                     <p className="text-muted-foreground">Here are your assigned assessments and progress.</p>
                 </motion.div>
-
-                {/* Main Grid Layout */}
                 <div className="grid gap-8 lg:grid-cols-3">
-                    {/* Left Column */}
                     <motion.div variants={containerVariants} className="lg:col-span-2 space-y-8">
-                        {/* Dynamic Recent Activity Tabs */}
                         <motion.div variants={itemVariants}>
                             <Tabs defaultValue="upcoming">
                                 <TabsList>
@@ -161,10 +152,7 @@ export default function StudentDashboard() {
                             </Tabs>
                         </motion.div>
                     </motion.div>
-                    
-                    {/* Right Column */}
                     <motion.div variants={containerVariants} className="lg:col-span-1 space-y-8">
-                        {/* Dynamic Progress Card */}
                         <motion.div variants={itemVariants}>
                             <Card>
                                 <CardHeader>
@@ -185,7 +173,6 @@ export default function StudentDashboard() {
                                 </CardContent>
                             </Card>
                         </motion.div>
-                        {/* Quick Access Card */}
                         <motion.div variants={itemVariants}>
                             <Card>
                                 <CardHeader>
@@ -213,20 +200,16 @@ export default function StudentDashboard() {
   )
 }
 
-// --- NEW: Helper Component for Rendering Lists ---
 function AssessmentList({ assessments, isLoading, error, type }: { assessments: Assessment[], isLoading: boolean, error: string | null, type: 'upcoming' | 'completed' }) {
     if (isLoading) {
         return <AssessmentSkeleton />;
     }
-
     if (error && assessments.length === 0) {
         return <ErrorState message={error} />;
     }
-
     if (assessments.length === 0) {
         return <EmptyState type={type} />;
     }
-
     return (
         <div className="space-y-4">
             {assessments.map(assessment => (
@@ -236,10 +219,9 @@ function AssessmentList({ assessments, isLoading, error, type }: { assessments: 
     );
 }
 
-
-// --- Reusable Component to Display a Single Assessment Card ---
 function AssessmentCard({ assessment }: { assessment: Assessment }) {
-    const isCompleted = assessment.technicalAssessment?.status === 'evaluated';
+    // ✅ CORRECTED: The main status now comes directly from assessment.status
+    const isCompleted = assessment.status === 'COMPLETED';
     const title = "Technical Skills Assessment";
     const description = `Assigned on ${new Date(assessment.createdAt).toLocaleDateString()}`;
     
@@ -279,6 +261,7 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
                 {isCompleted ? (
                     <Button variant="secondary" asChild><Link href={`/report/${assessment.report?.id || assessment.id}`}>View Report</Link></Button>
                 ) : (
+                    // ✅ CORRECTED: The link now points to the dynamic route using the parent Assessment ID
                     <Button asChild><Link href={`/technical-assessment/${assessment.id}`}>Start Assessment <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
                 )}
             </CardFooter>
@@ -286,7 +269,6 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
     );
 }
 
-// --- Helper Components for UI States ---
 function EmptyState({ type }: { type: 'upcoming' | 'completed' }) {
     const content = {
         upcoming: {

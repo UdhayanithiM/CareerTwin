@@ -1,5 +1,3 @@
-// app/api/auth/register/route.ts
-
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
@@ -10,7 +8,8 @@ const registerUserSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters long" }),
   email: z.string().email({ message: "Invalid email address" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters long" }),
-  role: z.enum(['STUDENT', 'HR', 'OFFICER', 'ADMIN']),
+  // ✅ FIXED: Removed 'OFFICER' to match the Prisma schema exactly.
+  role: z.enum(['STUDENT', 'HR', 'ADMIN']),
 });
 
 export async function POST(request: Request) {
@@ -25,10 +24,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Safely use the validated data.
     const { name, email, password, role } = validation.data;
-
-    // The problematic line has been removed. 'role' is a validated string.
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -36,12 +32,19 @@ export async function POST(request: Request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // ✅ ADDED: Temporary log for getting the admin password hash.
+    // Follow the step-by-step guide to use this.
+    console.log(`--- PASSWORD HASH FOR ${email} ---`);
+    console.log(hashedPassword);
+    console.log("--- COPY THE HASH ABOVE ---");
+
     const newUser = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: role, // Prisma client accepts the validated string directly.
+        role: role,
       },
     });
 

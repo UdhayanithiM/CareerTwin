@@ -18,6 +18,7 @@ interface AuthState {
   register: (registerData: any) => Promise<boolean>;
   logout: () => void;
   setUser: (user: User | null) => void;
+  clearError: () => void; // ✅ ADDED: New action to clear errors
 }
 
 // Create the store
@@ -25,6 +26,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: false,
   error: null,
+
+  // Action to clear the error state
+  clearError: () => set({ error: null }), // ✅ ADDED: Implementation for clearError
 
   // Action to set the user
   setUser: (user) => set({ user }),
@@ -67,17 +71,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       const result = await response.json();
       if (!response.ok) {
-        // This is where we handle the Zod validation error
         if (result.details) {
-          // We can format the detailed errors if needed, or just use the main one.
           const firstError = Object.values(result.details)[0];
           throw new Error(firstError as string);
         }
         throw new Error(result.error || 'Registration failed.');
       }
-
-      // On successful registration, you might want to log the user in directly
-      // or just confirm success. For now, we'll just confirm.
+      
       set({ isLoading: false });
       return true; // Indicate success
     } catch (err: any) {

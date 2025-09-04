@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,32 +22,43 @@ model User {
   password  String
   role      Role     @default(STUDENT)
   createdAt DateTime @default(now())
+  
+  // A user (candidate) can have many reports
   reports   Report[]
 }
 
+// This is the central model that links a candidate to an evaluation process initiated by an HR user.
 model Assessment {
   id                  String               @id @default(auto()) @map("_id") @db.ObjectId
   candidateId         String               @db.ObjectId
-  hrId                String               @db.ObjectId
-  status              String
+  hrId                String               @db.ObjectId // Tracks which HR user initiated the assessment
+  status              String               // e.g., "PENDING", "IN_PROGRESS", "COMPLETED"
   createdAt           DateTime             @default(now())
+  
+  // One-to-one relations for the different parts of the assessment
   technicalAssessment TechnicalAssessment?
   behavioralInterview BehavioralInterview?
   report              Report?
 }
 
+// Holds the details for the coding challenge part of the assessment.
 model TechnicalAssessment {
-  id                String     @id @default(auto()) @map("_id") @db.ObjectId
-  assessmentId      String     @unique @db.ObjectId
-  assessment        Assessment @relation(fields: [assessmentId], references: [id])
-  status            String
-  code              String?
-  language          String?
-  startedAt         DateTime   @default(now())
-  completedAt       DateTime?
-  evaluationResults Json?
+  id                  String           @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId        String           @unique @db.ObjectId
+  assessment          Assessment       @relation(fields: [assessmentId], references: [id])
+  status              String           // e.g., "NOT_STARTED", "COMPLETED"
+  code                String?
+  language            String?
+  startedAt           DateTime         @default(now())
+  completedAt         DateTime?
+  evaluationResults   Json?
+  
+  // RELATIONSHIP: Links this assessment to multiple questions
+  questions           CodingQuestion[] @relation(fields: [questionIds], references: [id])
+  questionIds         String[]         @db.ObjectId
 }
 
+// Holds the details for the AI-driven behavioral interview.
 model BehavioralInterview {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   assessmentId String     @unique @db.ObjectId
@@ -53,32 +66,35 @@ model BehavioralInterview {
   status       String
   startedAt    DateTime   @default(now())
   completedAt  DateTime?
+  // Stores the full conversation transcript as a JSON object.
   transcript   Json?
 }
 
+// The final report generated after an assessment is completed.
 model Report {
-  id              String     @id @default(auto()) @map("_id") @db.ObjectId
-  assessmentId    String     @unique @db.ObjectId
-  assessment      Assessment @relation(fields: [assessmentId], references: [id])
-  candidateId     String     @db.ObjectId
-  candidate       User       @relation(fields: [candidateId], references: [id])
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId    String      @unique @db.ObjectId
+  assessment      Assessment  @relation(fields: [assessmentId], references: [id])
+  candidateId     String      @db.ObjectId
+  candidate       User        @relation(fields: [candidateId], references: [id])
   roleFitScore    Float?
   cultureFitScore Float?
   honestyScore    Float?
   technicalScore  Float?
   summary         String?
-  createdAt       DateTime   @default(now())
+  createdAt       DateTime    @default(now())
 }
 
-// NEW: A model to store coding questions and their test cases
+// The central question bank for all coding questions on the platform.
 model CodingQuestion {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   title       String
   description String
   difficulty  String   // e.g., "Easy", "Medium", "Hard"
-  
-  // Stores an array of {input: any, expectedOutput: any}
   testCases   Json
-  
   createdAt   DateTime @default(now())
+
+  // RELATIONSHIP: Allows a question to be in multiple assessments
+  technicalAssessments   TechnicalAssessment[] @relation(fields: [technicalAssessmentIds], references: [id])
+  technicalAssessmentIds String[]              @db.ObjectId
 }
