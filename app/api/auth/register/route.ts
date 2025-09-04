@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+// ✅ FIX 1: Import the specific error type directly from Prisma client
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { z } from 'zod';
 
 const registerUserSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters long" }),
   email: z.string().email({ message: "Invalid email address" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters long" }),
-  // ✅ FIXED: Removed 'OFFICER' to match the Prisma schema exactly.
   role: z.enum(['STUDENT', 'HR', 'ADMIN']),
 });
 
@@ -32,12 +32,6 @@ export async function POST(request: Request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // ✅ ADDED: Temporary log for getting the admin password hash.
-    // Follow the step-by-step guide to use this.
-    console.log(`--- PASSWORD HASH FOR ${email} ---`);
-    console.log(hashedPassword);
-    console.log("--- COPY THE HASH ABOVE ---");
 
     const newUser = await prisma.user.create({
       data: {
@@ -48,15 +42,25 @@ export async function POST(request: Request) {
       },
     });
 
+    // Return a clean user object without the password hash
+    const { password: _, ...userWithoutPassword } = newUser;
+
     return NextResponse.json({
       success: true,
-      user: { name: newUser.name, email: newUser.email, role: newUser.role },
+      user: userWithoutPassword,
     });
+
   } catch (error: unknown) {
     console.error('Registration error:', error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
+
+    // ✅ FIX 2: Check if the 'unknown' error is an instance of the imported error type
+    if (error instanceof PrismaClientKnownRequestError) {
+      // ✅ FIX 3: Now TypeScript knows 'error' has a 'code' property here
+      if (error.code === 'P2002') {
+        return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
+      }
     }
+    
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

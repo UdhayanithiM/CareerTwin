@@ -1,7 +1,6 @@
 // stores/authStore.ts
 import { create } from 'zustand';
 
-// Define the shape of the user object and the store's state
 interface User {
   id: string;
   name: string;
@@ -11,34 +10,42 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  isLoading: boolean;
+  // ✅ CHANGED: isLoading now tracks the initial authentication check
+  isLoading: boolean; 
   error: string | null;
-  // We will define actions to modify the state
   login: (loginData: any) => Promise<boolean>;
   register: (registerData: any) => Promise<boolean>;
-  logout: () => void;
-  setUser: (user: User | null) => void;
-  clearError: () => void; // ✅ ADDED: New action to clear errors
+  logout: () => Promise<void>; // ✅ CHANGED: Logout should be async
+  clearError: () => void;
+  // ✅ ADDED: A new action to check auth status on app load
+  checkAuthStatus: () => Promise<void>; 
 }
 
-// Create the store
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isLoading: false,
+  // ✅ CHANGED: Start in a loading state to wait for the initial check
+  isLoading: true, 
   error: null,
 
-  // Action to clear the error state
-  clearError: () => set({ error: null }), // ✅ ADDED: Implementation for clearError
+  clearError: () => set({ error: null }),
 
-  // Action to set the user
-  setUser: (user) => set({ user }),
+  // ✅ ADDED: The new action to verify the user's cookie
+  checkAuthStatus: async () => {
+    try {
+      const response = await fetch('/api/auth/me'); // New endpoint
+      if (!response.ok) {
+        throw new Error('Not authenticated');
+      }
+      const result = await response.json();
+      set({ user: result.user, isLoading: false });
+    } catch (error) {
+      set({ user: null, isLoading: false });
+    }
+  },
 
-  // Action for logging out
-  logout: () => set({ user: null }),
-
-  // Action for handling user login
   login: async (loginData) => {
-    set({ isLoading: true, error: null });
+    // This action now only needs to set loading for the login action itself
+    set({ isLoading: true, error: null }); 
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -52,15 +59,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       set({ user: result.user, isLoading: false });
-      return true; // Indicate success
+      return true;
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
-      return false; // Indicate failure
+      return false;
     }
   },
+  
+  // ✅ CHANGED: Logout needs to call an API to clear the server cookie
+  logout: async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    set({ user: null, isLoading: false });
+  },
 
-  // Action for handling user registration
   register: async (registerData) => {
+    // This function is well-written and does not need changes.
     set({ isLoading: true, error: null });
     try {
       const response = await fetch('/api/auth/register', {
@@ -79,10 +92,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
       
       set({ isLoading: false });
-      return true; // Indicate success
+      return true;
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
-      return false; // Indicate failure
+      return false;
     }
   },
 }));

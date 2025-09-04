@@ -1,7 +1,6 @@
-// server.ts
-
+// ✅ FIX: Load .env file automatically. No path needed.
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 import { createServer } from "http";
 import { parse } from "url";
@@ -18,6 +17,7 @@ const port = 3000;
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
+// This check is correct and important
 if (!process.env.GEMINI_API_KEY) {
   throw new Error("GEMINI_API_KEY is not defined in the environment variables.");
 }
@@ -28,17 +28,12 @@ interface Message {
   text: string;
 }
 
-// ====================================================================
-// STATE MANAGEMENT UPGRADE
-// We will now store more than just the chat session.
-// ====================================================================
 interface InterviewSession {
     chat: ChatSession;
-    history: Content[]; // We will manually store the history
-    participants: Set<string>; // Keep track of who is in the room
+    history: Content[]; 
+    participants: Set<string>;
 }
 const interviewSessions = new Map<string, InterviewSession>();
-
 
 interface AuthenticatedSocket extends Socket {
   user?: UserJwtPayload;
@@ -54,16 +49,20 @@ app.prepare().then(() => {
     path: "/api/socketio",
   });
 
-  io.use((socket: AuthenticatedSocket, next) => {
+  // ✅ FIX: Made the entire function async to handle the await keyword
+  io.use(async (socket: AuthenticatedSocket, next) => {
     const cookies = cookie.parse(socket.handshake.headers.cookie || "");
-    const accessToken = cookies.accessToken;
+    
+    // ✅ FIX: Changed from 'accessToken' to 'token' to match your login API
+    const token = cookies.token;
 
-    if (!accessToken) {
+    if (!token) {
       return next(new Error("Authentication error: No token."));
     }
 
     try {
-      const payload = verifyJwt(accessToken);
+      // ✅ FIX: Added 'await' to correctly get the resolved value from the promise
+      const payload = await verifyJwt(token);
       if (!payload) { throw new Error("Invalid token."); }
       socket.user = payload; 
       next();
@@ -72,14 +71,13 @@ app.prepare().then(() => {
     }
   });
 
-
+  // Your io.on("connection", ...) logic is well-written and does not need changes.
   io.on("connection", (socket: AuthenticatedSocket) => {
     console.log(`✅ User connected: ${socket.id}, Name: ${socket.user?.name}`);
 
     socket.on("joinInterview", (interviewId: string) => {
       let session = interviewSessions.get(interviewId);
 
-      // If no session exists, create a new one
       if (!session) {
         console.log(`[Room: ${interviewId}] Creating new interview session.`);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
@@ -104,13 +102,12 @@ app.prepare().then(() => {
       socket.join(interviewId);
       session.participants.add(socket.id);
 
-      // Send the entire chat history to the user who just joined
       const chatHistoryForClient = session.history
         .map(h => ({
             sender: h.role === 'user' ? 'user' : 'ai',
             text: h.parts[0].text
         }))
-        .slice(2); // Remove the initial system prompts
+        .slice(2); 
 
       socket.emit("chatHistory", chatHistoryForClient);
     });
@@ -119,14 +116,12 @@ app.prepare().then(() => {
       const session = interviewSessions.get(interviewId);
       if (!session) { return console.error(`No session for ID: ${interviewId}`); }
 
-      // Add user message to history
       session.history.push({ role: 'user', parts: [{ text: message.text }] });
 
       try {
         const result = await session.chat.sendMessage(message.text);
         const aiText = result.response.text();
         
-        // Add AI response to history
         session.history.push({ role: 'model', parts: [{ text: aiText }] });
         
         io.to(interviewId).emit("aiResponse", { sender: "ai", text: aiText });
@@ -141,13 +136,11 @@ app.prepare().then(() => {
 
     socket.on("disconnect", () => {
       console.log(`👋 User disconnected: ${socket.id}`);
-      // Find which interview the user was in and remove them
       for (const [interviewId, session] of interviewSessions.entries()) {
           if (session.participants.has(socket.id)) {
               session.participants.delete(socket.id);
               console.log(`[Room: ${interviewId}] User ${socket.id} left. Participants remaining: ${session.participants.size}`);
               
-              // Optional: If no one is left, you can set a timer to clean up the session
               if (session.participants.size === 0) {
                   setTimeout(() => {
                       const currentSession = interviewSessions.get(interviewId);

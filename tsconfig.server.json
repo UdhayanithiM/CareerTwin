@@ -1,10 +1,13 @@
-// tsconfig.server.json
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "commonjs",
     "outDir": "dist",
-    "noEmit": false
+    "noEmit": false,
+    // ✅ FIX: Target a modern JavaScript version
+    "target": "es2020",
+    // ✅ FIX: Add this flag to allow the loop to work
+    "downlevelIteration": true
   },
   "include": ["server.ts"]
 }

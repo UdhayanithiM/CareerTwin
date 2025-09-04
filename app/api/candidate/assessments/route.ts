@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
+import { verifyJwt, UserJwtPayload } from '@/lib/auth'; // Assuming UserJwtPayload is exported from auth
 import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
   const cookieStore = cookies();
-  // Corrected to use 'token' which is set on login
   const token = cookieStore.get('token')?.value;
 
   if (!token) {
     return NextResponse.json({ error: 'Authentication token not found. Please log in.' }, { status: 401 });
   }
 
-  const decoded = verifyJwt(token);
+  // ✅ FIX: Wait for the promise to resolve
+  const decoded: UserJwtPayload | null = await verifyJwt(token);
 
+  // ✅ FIX: Check the resolved value, not the promise
   if (!decoded || typeof decoded.id !== 'string') {
     return NextResponse.json({ error: 'Invalid session. Please log in again.' }, { status: 401 });
   }
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
   try {
     const assessments = await prisma.assessment.findMany({
       where: { candidateId: userId },
+      // Your select and orderBy clauses are correct
       select: {
         id: true,
         status: true,

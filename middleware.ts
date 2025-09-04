@@ -1,31 +1,44 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyJwt } from './lib/auth'; // Uses the new jose-based function
+import { jwtVerify } from 'jose';
+
+// It's critical this JWT_SECRET matches the one used to sign the token
+const JWT_SECRET = process.env.JWT_SECRET!;
+const secretKey = new TextEncoder().encode(JWT_SECRET);
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
 
-  // Since we are using an Edge-compatible library, this will no longer crash.
-  const payload = token ? await verifyJwt(token) : null;
-
-  if (!payload) {
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete('token');
-    return response;
-  }
-
-  const userRole = payload.role.toUpperCase();
-
-  if (pathname.startsWith('/admin') && userRole !== 'ADMIN') {
+  // If no token, redirect to login immediately
+  if (!token) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (pathname.startsWith('/hr-dashboard') && userRole !== 'HR') {
+  try {
+    // Verify the token
+    const { payload } = await jwtVerify(token, secretKey);
+
+    // Get the role from the token's payload
+    const role = (payload.role as string)?.toUpperCase();
+
+    // Check for HR dashboard access
+    if (request.nextUrl.pathname.startsWith('/hr-dashboard') && role !== 'HR') {
+      // If not HR, deny access
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // Check for Admin dashboard access
+    if (request.nextUrl.pathname.startsWith('/admin') && role !== 'ADMIN') {
+      // If not Admin, deny access
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // If all checks pass, allow the request to continue
+    return NextResponse.next();
+  } catch (e) {
+    // If token is invalid or expired, redirect to login
     return NextResponse.redirect(new URL('/login', request.url));
   }
-
-  return NextResponse.next();
 }
 
 export const config = {

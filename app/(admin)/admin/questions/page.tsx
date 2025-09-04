@@ -1,29 +1,9 @@
-// app/(admin)/admin/questions/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +12,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// Updated Type: No longer includes jobRole
 interface CodingQuestion {
   id: string;
   title: string;
@@ -44,7 +23,7 @@ const initialFormState = {
   title: "",
   description: "",
   difficulty: "",
-  testCases: `[{"input": "example", "expected": "output"}]`,
+  testCases: `[{"input": "1, 2", "expectedOutput": "3"}]`,
 };
 
 export default function QuestionBankPage() {
@@ -84,28 +63,30 @@ export default function QuestionBankPage() {
     setIsLoading(true);
 
     try {
-        let parsedTestCases;
-        try {
-            parsedTestCases = JSON.parse(formData.testCases);
-        } catch (jsonError) {
-            throw new Error("Test cases are not valid JSON.");
-        }
+      let parsedTestCases;
+      try {
+        parsedTestCases = JSON.parse(formData.testCases);
+      } catch (jsonError) {
+        throw new Error("Test cases are not valid JSON. Please check for syntax errors.");
+      }
 
       const response = await fetch("/api/admin/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // jobRoleId is removed from the payload
         body: JSON.stringify({ ...formData, testCases: parsedTestCases }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        if (result.details) {
-            const errorMessages = Object.values(result.details.fieldErrors).flat().join(" ");
-            throw new Error(errorMessages);
+        // Better error handling to display detailed validation messages
+        if (result.details?.fieldErrors) {
+          const errorMessages = Object.entries(result.details.fieldErrors)
+            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
+            .join(' | ');
+          throw new Error(errorMessages);
         }
-        throw new Error(result.error || "Failed to create question.");
+        throw new Error(result.error || "An unknown error occurred.");
       }
 
       toast({
@@ -179,8 +160,6 @@ export default function QuestionBankPage() {
                 <Input id="title" placeholder="e.g., Two Sum" value={formData.title} onChange={handleFormChange} required />
               </div>
 
-              {/* Job Role Dropdown is REMOVED */}
-
               <div className="space-y-2">
                 <Label htmlFor="difficulty">Difficulty</Label>
                 <Select value={formData.difficulty} onValueChange={(value) => handleSelectChange('difficulty', value)} required>
@@ -200,7 +179,7 @@ export default function QuestionBankPage() {
 
                <div className="space-y-2">
                 <Label htmlFor="testCases">Test Cases (JSON format)</Label>
-                <Textarea id="testCases" placeholder='[{"input": [2, 7], "expected": [0, 1]}]' value={formData.testCases} onChange={handleFormChange} required rows={5}/>
+                <Textarea id="testCases" placeholder='[{"input": "1, 2", "expectedOutput": "3"}]' value={formData.testCases} onChange={handleFormChange} required rows={5}/>
               </div>
 
               <Button type="submit" disabled={isLoading} className="w-full">
