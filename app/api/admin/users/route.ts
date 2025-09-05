@@ -6,7 +6,11 @@ import { verifyJwt } from '@/lib/auth';
 export async function GET() {
   // Although middleware protects this, we can add an extra layer of security
   const token = cookies().get('token');
-  const payload = token ? verifyJwt(token.value) : null;
+  
+  // --- FIX: Added 'await' to correctly resolve the promise ---
+  const payload = token ? await verifyJwt(token.value) : null;
+  // --- END OF FIX ---
+
   if (payload?.role.toUpperCase() !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

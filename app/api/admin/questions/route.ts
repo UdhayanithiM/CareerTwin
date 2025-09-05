@@ -1,64 +1,70 @@
+// app/api/admin/questions/route.ts
+
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import { PrismaClient } from "@prisma/client";
 
-const testCaseSchema = z.object({
-  input: z.any(),
-  expectedOutput: z.any(),
-});
+const prisma = new PrismaClient();
 
-const codingQuestionSchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters long"),
-  description: z.string().min(20, "Description must be at least 20 characters long"),
-  difficulty: z.enum(["Easy", "Medium", "Hard"]),
-  testCases: z.array(testCaseSchema).min(1, "At least one test case is required"),
-});
-
+// GET all coding questions
 export async function GET() {
   try {
     const questions = await prisma.codingQuestion.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(questions);
+    return NextResponse.json(questions, { status: 200 });
   } catch (error) {
-    console.error("Error fetching questions:", error);
+    console.error("GET /api/admin/questions error:", error);
     return NextResponse.json(
-      { error: "Could not fetch coding questions" },
+      { error: "Failed to fetch coding questions" },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+// POST - create a new coding question
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    const validation = codingQuestionSchema.safeParse(body);
+    const body = await req.json();
+    const { title, description, difficulty, testCases } = body;
 
-    if (!validation.success) {
+    // Validation
+    if (!title || !description || !difficulty || !testCases) {
       return NextResponse.json(
-        { error: "Invalid input", details: validation.error.flatten() },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const { title, description, difficulty, testCases } = validation.data;
+    // Ensure testCases is valid JSON (array of objects)
+    let parsedTestCases;
+    try {
+      parsedTestCases =
+        typeof testCases === "string" ? JSON.parse(testCases) : testCases;
+      if (!Array.isArray(parsedTestCases)) {
+        throw new Error("Test cases must be an array");
+      }
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Invalid JSON format for test cases" },
+        { status: 400 }
+      );
+    }
 
+    // Save into MongoDB
     const newQuestion = await prisma.codingQuestion.create({
       data: {
         title,
         description,
         difficulty,
-        testCases,
+        testCases: parsedTestCases, // Prisma saves as Json
       },
     });
 
     return NextResponse.json(newQuestion, { status: 201 });
   } catch (error) {
-    console.error("Error creating question:", error);
+    console.error("POST /api/admin/questions error:", error);
     return NextResponse.json(
-      { error: "Could not create coding question" },
+      { error: "Failed to create coding question" },
       { status: 500 }
     );
   }

@@ -1,104 +1,92 @@
-// components/interview/ChatWindow.tsx
 "use strict";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { io, Socket } from "socket.io-client";
+import { type Socket } from "socket.io-client";
+import { CircleDashed } from "lucide-react";
 
+// --- TYPE DEFINITIONS ---
 interface Message {
   sender: "user" | "ai";
   text: string;
 }
 
-interface ServerToClientEvents {
-  aiResponse: (message: Message) => void;
-}
-
-interface ClientToServerEvents {
-  sendMessage: (message: Message) => void;
-}
-
-// NEW: Define the props for our component, including the callback
 interface ChatWindowProps {
-    onAnalysisUpdate: (analysis: any) => void;
+    socket: Socket | null;
+    interviewId: string | null;
 }
 
-export const ChatWindow = ({ onAnalysisUpdate }: ChatWindowProps) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      sender: "ai",
-      text: "Hello! I am your AI interviewer from FortiTwin. Your session is now connected in real-time. Let's begin. Tell me about yourself.",
-    },
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
+export const ChatWindow = ({ socket, interviewId }: ChatWindowProps) => {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [isSending, setIsSending] = useState(false);
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const socket = io();
-    socketRef.current = socket;
-    socket.on("aiResponse", (message) => {
-      setMessages((prev) => [...prev, message]);
-      setIsLoading(false);
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+    // Effect to automatically scroll to the latest message
+    useEffect(() => {
+        if (scrollAreaRef.current) {
+            scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+        }
+    }, [messages]);
 
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [messages]);
+    // Effect to handle incoming socket events
+    useEffect(() => {
+        if (!socket) return;
 
-  // NEW: Function to call our analysis API
-  const analyzeUserMessage = async (text: string) => {
-      try {
-          const response = await fetch('/api/interview/analyze', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text }),
-          });
-          const data = await response.json();
-          if (data.success) {
-              // Call the callback prop to update the parent component's state
-              onAnalysisUpdate(data.analysis);
-          }
-      } catch (error) {
-          console.error("Failed to analyze text:", error);
-      }
-  };
+        const handleChatHistory = (history: Message[]) => {
+            setMessages(history);
+        };
 
-  const handleSendMessage = (userMessage: string) => {
-    if (socketRef.current) {
-      const message: Message = { sender: "user", text: userMessage };
-      setMessages((prev) => [...prev, message]);
-      setIsLoading(true);
+        const handleAiResponse = (message: Message) => {
+            setMessages((prev) => [...prev, message]);
+            setIsSending(false); // AI has responded, so we're no longer "sending"
+        };
 
-      socketRef.current.emit("sendMessage", message);
+        socket.on("chatHistory", handleChatHistory);
+        socket.on("aiResponse", handleAiResponse);
 
-      // MODIFIED: Call the analysis function every time the user sends a message
-      analyzeUserMessage(userMessage);
-    }
-  };
+        // Cleanup function to remove listeners when the component unmounts
+        return () => {
+            socket.off("chatHistory", handleChatHistory);
+            socket.off("aiResponse", handleAiResponse);
+        };
+    }, [socket]);
 
-  return (
-    <div className="flex flex-col h-full bg-background">
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="max-w-4xl mx-auto">
-          {messages.map((msg, index) => (
-            <ChatMessage key={index} sender={msg.sender} text={msg.text} />
-          ))}
-          {isLoading && <ChatMessage sender="ai" text="Thinking..." />}
+    // Function to handle sending a message from the user
+    const handleSendMessage = useCallback((text: string) => {
+        if (socket && interviewId && text.trim()) {
+            const userMessage: Message = { sender: "user", text };
+
+            // Optimistically add the user's message to the UI
+            setMessages((prev) => [...prev, userMessage]);
+            setIsSending(true);
+
+            // Emit the message to the server
+            socket.emit("sendMessage", userMessage, interviewId);
+        }
+    }, [socket, interviewId]);
+
+    return (
+        <div className="flex flex-col h-full bg-background">
+            <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+                <div className="max-w-4xl mx-auto space-y-4">
+                    {messages.map((msg, index) => (
+                        <ChatMessage key={index} sender={msg.sender} text={msg.text} />
+                    ))}
+                    {isSending && (
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-primary text-primary-foreground">
+                                <CircleDashed className="h-5 w-5 animate-spin" />
+                            </div>
+                            <div className="max-w-xs rounded-lg p-3 text-sm bg-muted">
+                                <p>Thinking...</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </ScrollArea>
+            <ChatInput onSend={handleSendMessage} isLoading={isSending} />
         </div>
-      </ScrollArea>
-      <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
-    </div>
-  );
+    );
 };

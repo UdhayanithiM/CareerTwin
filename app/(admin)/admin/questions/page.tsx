@@ -1,9 +1,28 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,40 +42,49 @@ const initialFormState = {
   title: "",
   description: "",
   difficulty: "",
-  testCases: `[{"input": "1, 2", "expectedOutput": "3"}]`,
+  testCases: [
+    { input: "1,2", expectedOutput: 3 }, // ✅ Already valid JSON
+  ],
 };
 
 export default function QuestionBankPage() {
   const [questions, setQuestions] = useState<CodingQuestion[]>([]);
   const [formData, setFormData] = useState(initialFormState);
+  const [testCasesInput, setTestCasesInput] = useState(
+    JSON.stringify(initialFormState.testCases, null, 2)
+  );
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchQuestions = async () => {
     try {
-        const questionsRes = await fetch("/api/admin/questions");
-        if (!questionsRes.ok) throw new Error("Failed to fetch questions");
-        const questionsData = await questionsRes.json();
-        setQuestions(questionsData);
+      const questionsRes = await fetch("/api/admin/questions");
+      if (!questionsRes.ok) throw new Error("Failed to fetch questions");
+      const questionsData = await questionsRes.json();
+      setQuestions(questionsData);
     } catch (error) {
-        toast({ title: "Error", description: "Could not fetch questions.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Could not fetch questions.",
+        variant: "destructive",
+      });
     }
-  }
+  };
 
   useEffect(() => {
     fetchQuestions();
-  }, [toast]);
-  
+  }, []);
+
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
-  
-  const handleSelectChange = (id: string, value: string) => {
-      setFormData(prev => ({ ...prev, [id]: value}));
-  }
+
+  const handleSelectChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, difficulty: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,27 +93,33 @@ export default function QuestionBankPage() {
     try {
       let parsedTestCases;
       try {
-        parsedTestCases = JSON.parse(formData.testCases);
+        parsedTestCases = JSON.parse(testCasesInput);
+
+        if (!Array.isArray(parsedTestCases)) {
+          throw new Error("Test cases must be a valid JSON array.");
+        }
       } catch (jsonError) {
-        throw new Error("Test cases are not valid JSON. Please check for syntax errors.");
+        throw new Error(
+          "Test cases are not valid JSON. Please check for syntax errors."
+        );
       }
+
+      const requestBody = {
+        title: formData.title,
+        description: formData.description,
+        difficulty: formData.difficulty,
+        testCases: parsedTestCases,
+      };
 
       const response = await fetch("/api/admin/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, testCases: parsedTestCases }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        // Better error handling to display detailed validation messages
-        if (result.details?.fieldErrors) {
-          const errorMessages = Object.entries(result.details.fieldErrors)
-            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
-            .join(' | ');
-          throw new Error(errorMessages);
-        }
         throw new Error(result.error || "An unknown error occurred.");
       }
 
@@ -94,9 +128,10 @@ export default function QuestionBankPage() {
         description: `Question "${formData.title}" has been created.`,
       });
 
+      // Reset form
       setFormData(initialFormState);
-      fetchQuestions(); // Refresh the list
-
+      setTestCasesInput(JSON.stringify(initialFormState.testCases, null, 2));
+      fetchQuestions();
     } catch (error: any) {
       toast({
         title: "Error Creating Question",
@@ -110,6 +145,7 @@ export default function QuestionBankPage() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Questions List */}
       <div className="md:col-span-2">
         <Card>
           <CardHeader>
@@ -132,11 +168,21 @@ export default function QuestionBankPage() {
                   <TableRow key={q.id}>
                     <TableCell className="font-medium">{q.title}</TableCell>
                     <TableCell>
-                        <Badge variant={q.difficulty === 'Hard' ? 'destructive' : q.difficulty === 'Medium' ? 'secondary' : 'default'}>
-                            {q.difficulty}
-                        </Badge>
+                      <Badge
+                        variant={
+                          q.difficulty === "Hard"
+                            ? "destructive"
+                            : q.difficulty === "Medium"
+                            ? "secondary"
+                            : "default"
+                        }
+                      >
+                        {q.difficulty}
+                      </Badge>
                     </TableCell>
-                    <TableCell>{new Date(q.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {new Date(q.createdAt).toLocaleDateString()}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -145,6 +191,7 @@ export default function QuestionBankPage() {
         </Card>
       </div>
 
+      {/* Add New Question */}
       <div>
         <Card>
           <CardHeader>
@@ -155,33 +202,67 @@ export default function QuestionBankPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Question Title</Label>
-                <Input id="title" placeholder="e.g., Two Sum" value={formData.title} onChange={handleFormChange} required />
+                <Input
+                  id="title"
+                  placeholder="e.g., Two Sum"
+                  value={formData.title}
+                  onChange={handleFormChange}
+                  required
+                />
               </div>
 
+              {/* Difficulty */}
               <div className="space-y-2">
                 <Label htmlFor="difficulty">Difficulty</Label>
-                <Select value={formData.difficulty} onValueChange={(value) => handleSelectChange('difficulty', value)} required>
-                    <SelectTrigger><SelectValue placeholder="Select a difficulty..." /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Easy">Easy</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="Hard">Hard</SelectItem>
-                    </SelectContent>
+                <Select
+                  value={formData.difficulty}
+                  onValueChange={handleSelectChange}
+                  required
+                >
+                  <SelectTrigger
+                    id="difficulty"
+                    aria-label="Select difficulty"
+                    title="Select difficulty"
+                  >
+                    <SelectValue placeholder="Select a difficulty..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Easy">Easy</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Hard">Hard</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
 
+              {/* Description */}
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Provide a detailed problem description." value={formData.description} onChange={handleFormChange} required />
+                <Textarea
+                  id="description"
+                  placeholder="Provide a detailed problem description."
+                  value={formData.description}
+                  onChange={handleFormChange}
+                  required
+                />
               </div>
 
-               <div className="space-y-2">
+              {/* Test Cases */}
+              <div className="space-y-2">
                 <Label htmlFor="testCases">Test Cases (JSON format)</Label>
-                <Textarea id="testCases" placeholder='[{"input": "1, 2", "expectedOutput": "3"}]' value={formData.testCases} onChange={handleFormChange} required rows={5}/>
+                <Textarea
+                  id="testCases"
+                  placeholder='[{"input": "1,2", "expectedOutput": 3}]'
+                  value={testCasesInput}
+                  onChange={(e) => setTestCasesInput(e.target.value)}
+                  required
+                  rows={5}
+                />
               </div>
 
+              {/* Submit Button */}
               <Button type="submit" disabled={isLoading} className="w-full">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {isLoading ? "Adding..." : "Add Question"}

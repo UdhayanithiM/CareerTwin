@@ -1,244 +1,388 @@
-'use client';
+// app/technical-assessment/[assessmentId]/page.tsx
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Editor from '@monaco-editor/react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, Lightbulb, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { Toaster, toast } from 'sonner';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
+import { CodeEditor } from "@/components/code-editor";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ArrowLeft,
+  Play,
+  Send,
+  LoaderCircle,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 
-// --- Type Definitions ---
-type CodingQuestion = {
+// --- TYPES ---
+interface CodingQuestion {
   id: string;
   title: string;
   description: string;
   difficulty: string;
-};
+}
 
-type SubmissionResult = {
-  passCount: number;
-  totalCount: number;
-  details: string;
-};
+interface TechnicalAssessment {
+  id: string;
+  status: string;
+  questionIds: string[];
+  questions: CodingQuestion[];
+}
 
-// --- Main Component ---
+interface EvaluationResult {
+  questionId: string;
+  title: string;
+  testCases: {
+    status: "passed" | "failed" | "error";
+    message?: string;
+    expected?: any;
+    actual?: any;
+  }[];
+}
+
+// --- MAIN PAGE ---
 export default function TechnicalAssessmentPage() {
+  const router = useRouter();
   const params = useParams();
-  const assessmentId = params.assessmentId as string;
+  const { toast } = useToast();
+  const assessmentId = params?.assessmentId as string;
 
-  // --- State Management ---
-  const [question, setQuestion] = useState<CodingQuestion | null>(null);
+  const [assessment, setAssessment] =
+    useState<TechnicalAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [language, setLanguage] = useState('javascript');
-  const [code, setCode] = useState('// Start your code here...');
-  
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState(
+    `function yourFunctionName() {\n  // Write your code here\n}`
+  );
+  const [language, setLanguage] = useState("javascript");
+  const [output, setOutput] = useState<EvaluationResult[] | null>(null);
 
-  // --- Data Fetching ---
+  // Fetch assessment details
   useEffect(() => {
     if (!assessmentId) return;
 
-    const fetchQuestion = async () => {
+    const fetchAssessment = async () => {
       try {
         setIsLoading(true);
         const response = await fetch(`/api/assessment/${assessmentId}`);
         if (!response.ok) {
-          throw new Error('Failed to load assessment. Please check the URL and try again.');
+          const errData = await response.json();
+          throw new Error(errData.error || "Failed to fetch assessment.");
         }
-        const data = await response.json();
-        setQuestion(data.question);
+        const data: TechnicalAssessment = await response.json();
+        setAssessment(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setError(
+          err instanceof Error ? err.message : "An unknown error occurred."
+        );
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchQuestion();
+    fetchAssessment();
   }, [assessmentId]);
 
-  // --- Event Handlers ---
-  const handleSubmit = async () => {
-    if (!question) return;
-
+  // Run code tests
+  const handleRunCode = async () => {
+    if (!assessment) return;
+    setIsEvaluating(true);
+    setOutput(null);
     try {
-      setIsSubmitting(true);
-      setSubmissionResult(null);
-      
-      const response = await fetch('/api/assessment/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/assessment/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assessmentId,
-          questionId: question.id,
+          questionIds: assessment.questionIds,
           code,
           language,
         }),
       });
 
       const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit solution.');
+        throw new Error(result.error || "Evaluation failed.");
       }
-      
-      setSubmissionResult(result.results);
-      toast.success('Evaluation Complete!', {
-        description: `${result.results.passCount} out of ${result.results.totalCount} test cases passed.`,
+
+      setOutput(result.results);
+      toast({ title: "Evaluation complete" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Evaluation error",
+        description:
+          err instanceof Error ? err.message : "An unknown error occurred.",
+      });
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  // Submit solution
+  const handleSubmitSolution = async () => {
+    if (!assessment) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/assessment/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assessmentId,
+          questionIds: assessment.questionIds,
+          code,
+          language,
+        }),
       });
 
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Submission failed.");
+      }
+
+      toast({
+        title: "Submission successful",
+        description: "Redirecting to your dashboard...",
+      });
+      router.push("/dashboard");
     } catch (err) {
-      toast.error('Submission Failed', {
-        description: err instanceof Error ? err.message : 'An unknown error occurred.',
+      toast({
+        variant: "destructive",
+        title: "Submission error",
+        description:
+          err instanceof Error ? err.message : "An unknown error occurred.",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- UI Rendering ---
-  if (isLoading) {
-    return <LoadingSkeleton />;
-  }
-
-  if (error) {
-    return <ErrorDisplay message={error} />;
-  }
+  if (isLoading) return <LoadingSkeleton />;
+  if (error) return <ErrorDisplay message={error} />;
+  if (!assessment)
+    return <ErrorDisplay message="Assessment could not be loaded." />;
 
   return (
-    <>
-      <Toaster position="top-center" richColors />
-      <div className="h-screen w-screen bg-background text-foreground flex flex-col">
-        {/* Header */}
-        <header className="flex items-center justify-between p-2 border-b shrink-0">
-          <h1 className="text-lg font-bold">
-            <span className="text-primary">Forti</span>Twin Technical Assessment
-          </h1>
-          <div className="flex items-center gap-4">
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="javascript">JavaScript</SelectItem>
-                <SelectItem value="python">Python</SelectItem>
-                <SelectItem value="java">Java</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Terminal className="mr-2 h-4 w-4" />
-              )}
-              Run & Submit
-            </Button>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      {/* Header */}
+      <header className="border-b shrink-0">
+        <div className="container h-16 flex justify-between items-center">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-lg font-semibold">Technical Assessment</h1>
+          <div className="text-sm text-muted-foreground">
+            {assessment.questions.length} Question
+            {assessment.questions.length > 1 ? "s" : ""}
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-grow">
-          {/* Left Panel: Question */}
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col">
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
+          {/* Questions Panel */}
           <ResizablePanel defaultSize={40} minSize={25}>
-            <div className="p-6 h-full overflow-y-auto">
-              <Card className="h-full border-none shadow-none">
-                <CardHeader>
-                  <CardTitle className="text-2xl">{question?.title}</CardTitle>
-                  <CardDescription>
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full ${question?.difficulty === 'Easy' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {question?.difficulty}
-                    </span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{question?.description}</p>
-                  <Alert className="mt-6">
-                    <Lightbulb className="h-4 w-4" />
-                    <AlertTitle>Instructions</AlertTitle>
-                    <AlertDescription>
-                      Ensure your code returns the value in the exact format specified. Do not add extra print statements to your final code.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-            </div>
+            <ScrollArea className="h-full p-6">
+              <div className="space-y-6">
+                {assessment.questions.map((q) => (
+                  <Card key={q.id}>
+                    <CardHeader>
+                      <CardTitle>{q.title}</CardTitle>
+                      <CardDescription>
+                        Difficulty: {q.difficulty}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground whitespace-pre-line">
+                        {q.description}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
-          {/* Right Panel: Editor & Output */}
-          <ResizablePanel defaultSize={60} minSize={40}>
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={75} minSize={50}>
-                <Editor
-                  height="100%"
-                  language={language}
-                  theme="vs-dark"
-                  value={code}
-                  onChange={(value) => setCode(value || '')}
-                  options={{ minimap: { enabled: false } }}
-                />
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={25} minSize={15}>
-                <div className="p-4 h-full">
-                  <h3 className="text-lg font-semibold mb-2">Evaluation Result</h3>
-                  <div className="bg-muted rounded-md p-4 h-[calc(100%-2rem)]">
-                    {isSubmitting && <p className="text-sm text-muted-foreground">Evaluating your code...</p>}
-                    {submissionResult && (
-                      submissionResult.passCount === submissionResult.totalCount ? (
-                         <div className="text-green-500 flex items-center">
-                           <CheckCircle className="mr-2 h-5 w-5" />
-                           <p><strong>Success!</strong> All {submissionResult.totalCount} test cases passed.</p>
-                         </div>
-                      ) : (
-                         <div className="text-red-500 flex items-center">
-                           <XCircle className="mr-2 h-5 w-5" />
-                           <p><strong>Failed:</strong> Only {submissionResult.passCount} of {submissionResult.totalCount} test cases passed.</p>
-                         </div>
-                      )
-                    )}
-                    {!isSubmitting && !submissionResult && <p className="text-sm text-muted-foreground">Click "Run & Submit" to see the results.</p>}
-                  </div>
+          {/* Code Editor Panel */}
+          <ResizablePanel defaultSize={60} minSize={30}>
+            <div className="h-full flex flex-col">
+              {/* Language Selector + Title */}
+              <div className="p-4 border-b flex items-center justify-between">
+                <h2 className="font-medium">Your Solution</h2>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="language-select"
+                    className="text-sm font-medium"
+                  >
+                    Language:
+                  </label>
+                  <select
+                    id="language-select"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="border rounded p-1 text-sm"
+                    aria-label="Select programming language"
+                  >
+                    <option value="javascript">JavaScript</option>
+                    <option value="python">Python</option>
+                    <option value="java">Java</option>
+                    <option value="c">C</option>
+                  </select>
                 </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+              </div>
+
+              {/* Editor */}
+              <div className="flex-1 overflow-hidden">
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  language={language}
+                />
+              </div>
+
+              {/* Output */}
+              <div className="h-56 border-t bg-muted/30">
+                <ScrollArea className="h-full p-4">
+                  <h3 className="font-semibold mb-2 text-sm">Output</h3>
+                  {isEvaluating && (
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                  )}
+                  {!isEvaluating && !output && (
+                    <p className="text-sm text-muted-foreground">
+                      Click 'Run Tests' to see results.
+                    </p>
+                  )}
+                  {output && <OutputDisplay results={output} />}
+                </ScrollArea>
+              </div>
+
+              {/* Actions */}
+              <div className="p-4 flex justify-end gap-4 border-t bg-background">
+                <Button
+                  variant="outline"
+                  onClick={handleRunCode}
+                  disabled={isEvaluating || isSubmitting}
+                >
+                  {isEvaluating ? (
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="mr-2 h-4 w-4" />
+                  )}
+                  {isEvaluating ? "Running..." : "Run Tests"}
+                </Button>
+                <Button
+                  onClick={handleSubmitSolution}
+                  disabled={isEvaluating || isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  {isSubmitting ? "Submitting..." : "Submit Solution"}
+                </Button>
+              </div>
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+      </main>
+    </div>
+  );
+}
+
+// --- OUTPUT DISPLAY ---
+const OutputDisplay = ({ results }: { results: EvaluationResult[] }) => (
+  <div className="space-y-4">
+    {results.map((res) => (
+      <div key={res.questionId}>
+        <h4 className="font-semibold text-sm mb-2">{res.title}</h4>
+        <div className="space-y-2">
+          {res.testCases.map((tc, index) => (
+            <div key={index} className="text-xs flex items-start">
+              {tc.status === "passed" && (
+                <CheckCircle className="h-3.5 w-3.5 text-green-500 mr-2 mt-0.5 shrink-0" />
+              )}
+              {tc.status === "failed" && (
+                <XCircle className="h-3.5 w-3.5 text-red-500 mr-2 mt-0.5 shrink-0" />
+              )}
+              {tc.status === "error" && (
+                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 mr-2 mt-0.5 shrink-0" />
+              )}
+              <div>
+                <span
+                  className={cn(
+                    "font-medium",
+                    tc.status === "passed" && "text-green-500",
+                    tc.status === "failed" && "text-red-500"
+                  )}
+                >
+                  Test Case {index + 1}: {tc.status}
+                </span>
+                {tc.status === "failed" && (
+                  <p className="text-muted-foreground">
+                    Expected: {JSON.stringify(tc.expected)}, Got:{" "}
+                    {JSON.stringify(tc.actual)}
+                  </p>
+                )}
+                {tc.status === "error" && (
+                  <p className="text-muted-foreground font-mono bg-muted p-1 rounded">
+                    {tc.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </>
-  );
-}
+    ))}
+  </div>
+);
 
-// --- Helper Components for UI States ---
-function LoadingSkeleton() {
-  return (
-    <div className="p-6 h-screen">
-      <Skeleton className="h-12 w-1/3 mb-4" />
-      <Skeleton className="h-6 w-1/4 mb-8" />
-      <Skeleton className="h-4 w-full mb-2" />
-      <Skeleton className="h-4 w-full mb-2" />
-      <Skeleton className="h-4 w-3/4" />
-    </div>
-  );
-}
+// --- LOADING ---
+const LoadingSkeleton = () => (
+  <div className="flex h-screen w-full items-center justify-center">
+    <LoaderCircle className="h-10 w-10 animate-spin text-primary" />
+  </div>
+);
 
-function ErrorDisplay({ message }: { message: string }) {
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <Alert variant="destructive" className="w-1/2">
-        <Terminal className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{message}</AlertDescription>
-      </Alert>
-    </div>
-  );
-}
+// --- ERROR DISPLAY ---
+const ErrorDisplay = ({ message }: { message: string }) => (
+  <div className="flex h-screen w-full items-center justify-center p-4">
+    <Card className="w-full max-w-md text-center">
+      <CardHeader>
+        <CardTitle className="text-destructive flex items-center justify-center">
+          <AlertTriangle className="mr-2 h-6 w-6" /> Error
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>{message}</p>
+        <Button asChild className="mt-4">
+          <Link href="/dashboard">Back to Dashboard</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  </div>
+);

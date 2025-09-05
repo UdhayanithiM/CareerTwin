@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, Code, Gauge, User, BookOpen, CalendarClock, AlertTriangle, FileText, CheckCircle, Pencil } from "lucide-react"
+import { ArrowRight, Code, Gauge, User, BookOpen, CalendarClock, AlertTriangle, FileText, CheckCircle, Pencil, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -13,26 +13,19 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
 
-// --- Type Definitions for our API data ---
-type TechnicalAssessment = {
-  id: string;
-  status: string;
-  evaluationResults?: {
-    passCount: number;
-    totalCount: number;
-  } | null;
-};
-
-type Report = {
-  id: string;
-};
-
+// --- UPDATED TYPE DEFINITION ---
+// This type reflects the full structure from your Prisma schema, which is necessary
+// for the dashboard to differentiate between assessment types.
 type Assessment = {
   id: string;
-  status: string; // This is the main status we will use: "PENDING" or "COMPLETED"
+  status: string;
   createdAt: string;
-  technicalAssessment: TechnicalAssessment | null;
-  report: Report | null;
+  technicalAssessment: {
+    evaluationResults?: { passCount: number; totalCount: number; } | null;
+  } | null;
+  // The presence of this object indicates it's a behavioral interview.
+  behavioralInterview: {} | null; 
+  report: { id: string; } | null;
 };
 
 // --- Animation Variants ---
@@ -63,6 +56,7 @@ export default function StudentDashboard() {
     const fetchAssessments = async () => {
       try {
         setIsLoading(true);
+        setError(null); // Reset error state on each fetch attempt
         const response = await fetch('/api/candidate/assessments', {
             credentials: 'include',
         });
@@ -86,15 +80,12 @@ export default function StudentDashboard() {
         setIsLoading(false);
       }
     };
+    
     if (user) {
         fetchAssessments();
-    } else {
-        // This handles the case where the component mounts before the auth store is hydrated
-        // We'll wait for the user object to be available.
     }
   }, [user, router]);
 
-  // ✅ CORRECTED: Derived state for tabs based on the parent Assessment status
   const upcomingAssessments = assessments.filter(a => a.status === 'PENDING');
   const completedAssessments = assessments.filter(a => a.status === 'COMPLETED');
 
@@ -108,9 +99,9 @@ export default function StudentDashboard() {
                         <span className="text-primary">Forti</span>Twin
                     </span>
                 </Link>
+                {/* --- NAVIGATION UPDATED --- */}
                 <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                     <Link href="/dashboard" className="text-primary font-semibold">Dashboard</Link>
-                    <Link href="/assessment-list" className="text-muted-foreground hover:text-primary transition-colors">Assessments</Link>
                     <Link href="/report" className="text-muted-foreground hover:text-primary transition-colors">Reports</Link>
                 </nav>
                 <div className="flex items-center gap-4">
@@ -136,7 +127,7 @@ export default function StudentDashboard() {
                     <p className="text-muted-foreground">Here are your assigned assessments and progress.</p>
                 </motion.div>
                 <div className="grid gap-8 lg:grid-cols-3">
-                    <motion.div variants={containerVariants} className="lg:col-span-2 space-y-8">
+                    <motion.div className="lg:col-span-2 space-y-8">
                         <motion.div variants={itemVariants}>
                             <Tabs defaultValue="upcoming">
                                 <TabsList>
@@ -152,7 +143,7 @@ export default function StudentDashboard() {
                             </Tabs>
                         </motion.div>
                     </motion.div>
-                    <motion.div variants={containerVariants} className="lg:col-span-1 space-y-8">
+                    <div className="lg:col-span-1 space-y-8">
                         <motion.div variants={itemVariants}>
                             <Card>
                                 <CardHeader>
@@ -180,11 +171,6 @@ export default function StudentDashboard() {
                                 </CardHeader>
                                 <CardContent className="space-y-2">
                                     <Button variant="ghost" className="w-full justify-start" asChild>
-                                        <Link href="/assessment-list">
-                                            <BookOpen className="mr-2 h-4 w-4" /> Browse All Assessments
-                                        </Link>
-                                    </Button>
-                                    <Button variant="ghost" className="w-full justify-start" asChild>
                                         <Link href="/report">
                                             <FileText className="mr-2 h-4 w-4" /> View My Reports
                                         </Link>
@@ -192,7 +178,7 @@ export default function StudentDashboard() {
                                 </CardContent>
                             </Card>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 </div>
             </motion.div>
         </main>
@@ -219,12 +205,32 @@ function AssessmentList({ assessments, isLoading, error, type }: { assessments: 
     );
 }
 
+// --- UPDATED AssessmentCard COMPONENT ---
 function AssessmentCard({ assessment }: { assessment: Assessment }) {
-    // ✅ CORRECTED: The main status now comes directly from assessment.status
     const isCompleted = assessment.status === 'COMPLETED';
-    const title = "Technical Skills Assessment";
-    const description = `Assigned on ${new Date(assessment.createdAt).toLocaleDateString()}`;
     
+    // This is the key logic: determine the type based on which nested object exists in the data.
+    const isTechnical = !!assessment.technicalAssessment;
+    const isBehavioral = !!assessment.behavioralInterview;
+
+    let title = "General Assessment";
+    let icon = <FileText className="h-4 w-4" />;
+    let focusText = "Awaiting details";
+    let startLink = "/dashboard"; // A safe default link
+
+    if (isTechnical) {
+        title = "Technical Skills Assessment";
+        icon = <Code className="h-4 w-4" />;
+        focusText = "Focus: Problem Solving & Algorithms";
+        startLink = `/technical-assessment/${assessment.id}`;
+    } else if (isBehavioral) {
+        title = "Behavioral Interview";
+        icon = <MessageSquare className="h-4 w-4" />;
+        focusText = "Focus: Communication & Soft Skills";
+        startLink = `/take-interview/${assessment.id}`;
+    }
+    
+    const description = `Assigned on ${new Date(assessment.createdAt).toLocaleDateString()}`;
     const results = assessment.technicalAssessment?.evaluationResults;
     const score = results?.passCount;
     const total = results?.totalCount;
@@ -238,8 +244,8 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
             <CardContent>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Code className="h-4 w-4" />
-                        <span>Focus: Problem Solving & Algorithms</span>
+                        {icon}
+                        <span>{focusText}</span>
                     </div>
                     {isCompleted ? (
                         <span className="text-green-600 font-semibold flex items-center text-sm"><CheckCircle className="mr-1.5 h-4 w-4"/>Completed</span>
@@ -247,13 +253,13 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
                         <span className="text-blue-600 font-semibold flex items-center text-sm"><Pencil className="mr-1.5 h-4 w-4"/>Pending</span>
                     )}
                 </div>
-                {isCompleted && score !== undefined && total !== undefined && (
+                {isCompleted && isTechnical && score !== undefined && total !== undefined && (
                      <div className="mt-4">
                         <div className="flex items-center justify-between font-medium text-sm">
                             <span>Score:</span>
                             <span>{score} / {total} Test Cases Passed</span>
                         </div>
-                        <Progress value={(score / total) * 100} className="h-2 mt-2" />
+                        <Progress value={total > 0 ? (score / total) * 100 : 0} className="h-2 mt-2" />
                     </div>
                 )}
             </CardContent>
@@ -261,19 +267,20 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
                 {isCompleted ? (
                     <Button variant="secondary" asChild><Link href={`/report/${assessment.report?.id || assessment.id}`}>View Report</Link></Button>
                 ) : (
-                    // ✅ CORRECTED: The link now points to the dynamic route using the parent Assessment ID
-                    <Button asChild><Link href={`/technical-assessment/${assessment.id}`}>Start Assessment <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+                    <Button asChild><Link href={startLink}>Start Assessment <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
                 )}
             </CardFooter>
         </Card>
     );
 }
 
+// --- Helper Components (Unchanged) ---
+
 function EmptyState({ type }: { type: 'upcoming' | 'completed' }) {
     const content = {
         upcoming: {
             title: "No Upcoming Assessments",
-            description: "You're all caught up! New assessments will appear here when assigned.",
+            description: "You're all caught up! New assessments will appear here when assigned by an HR professional.",
         },
         completed: {
             title: "No Completed Assessments",
@@ -297,7 +304,7 @@ function ErrorState({ message }: { message: string }) {
             <div className="inline-block bg-destructive/10 p-4 rounded-full mb-4">
                 <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
-            <h3 className="text-xl font-semibold text-destructive">Could not load data</h3>
+            <h3 className="text-xl font-semibold text-destructive">Could Not Load Assessments</h3>
             <p className="text-muted-foreground mt-2">{message}</p>
         </div>
     );
@@ -315,7 +322,7 @@ function AssessmentSkeleton() {
                     <Skeleton className="h-5 w-2/5" />
                 </CardContent>
                 <CardFooter className="flex justify-end">
-                    <Skeleton className="h-10 w-28" />
+                    <Skeleton className="h-10 w-32" />
                 </CardFooter>
             </Card>
         </div>
