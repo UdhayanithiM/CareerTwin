@@ -1,5 +1,3 @@
-// app/api/hr/assessments/route.ts
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { jwtVerify } from 'jose';
@@ -17,41 +15,46 @@ export async function POST(request: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, secretKey);
     const role = (payload.role as string)?.toUpperCase();
-    const hrId = payload.id as string; // Get the HR user's ID from the token
+    const hrId = payload.id as string;
 
-    // Ensure only HR users can create assessments
-    if (role !== 'HR') {
+    if (role !== 'HR' && role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const { candidateId, questionIds } = body;
 
-    // Validate input
     if (!candidateId || !questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
       return NextResponse.json({ error: 'Invalid input: candidateId and questionIds are required.' }, { status: 400 });
     }
 
-    // Create the main Assessment record
+    // --- THIS IS THE CORRECTED LOGIC ---
+    // We now create the main assessment, the technical part, AND the behavioral part
+    // all at once, ensuring the entire process is linked from the start.
     const newAssessment = await prisma.assessment.create({
       data: {
         candidateId: candidateId,
         hrId: hrId,
-        status: 'PENDING',
-        // Create the nested TechnicalAssessment at the same time
+        status: 'PENDING', // The overall status is pending
+        // Create the nested TechnicalAssessment
         technicalAssessment: {
           create: {
-            status: 'NOT_STARTED',
+            status: 'NOT_STARTED', // The technical test has not been started
             questionIds: questionIds,
           },
         },
+        // ALSO Create the nested BehavioralInterview
+        behavioralInterview: {
+            create: {
+                status: 'LOCKED', // The interview is locked until the technical part is passed
+            }
+        }
       },
     });
 
     return NextResponse.json({ success: true, assessment: newAssessment }, { status: 201 });
 
   } catch (error) {
-    // Handle cases where the token is invalid
     if (error instanceof Error && error.name === 'JWTExpired') {
         return NextResponse.json({ error: 'Unauthorized: Token has expired.' }, { status: 401 });
     }

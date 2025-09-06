@@ -1,19 +1,19 @@
-// app/(admin)/components/AdminNav.tsx
-
 "use client"; // This component needs to be a client component to use hooks
 
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // Hook to get the current URL
-import { Home, Users, LineChart } from "lucide-react";
+import { Home, Users, HelpCircle, FileText } from "lucide-react"; // Updated icons
 import { cn } from "@/lib/utils"; // A utility for combining class names
 
 export function AdminNav() {
   const pathname = usePathname(); // Get the current path, e.g., "/admin/users"
 
+  // We add the "Assessments" link to this array
   const links = [
     { href: "/admin", label: "Dashboard", icon: Home },
     { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/questions", label: "Question Bank", icon: LineChart },
+    { href: "/admin/questions", label: "Question Bank", icon: HelpCircle },
+    { href: "/admin/assessments", label: "Assessments", icon: FileText }, // <-- ADDED THIS LINE
   ];
 
   return (

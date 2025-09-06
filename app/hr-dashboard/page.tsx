@@ -1,70 +1,70 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+// --- THIS IS THE CORRECTED IMPORT STATEMENT ---
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Users, Search, FilePlus2, AlertTriangle, LoaderCircle } from 'lucide-react';
+import { Users, Search, FilePlus2, AlertTriangle, LoaderCircle, CheckCircle, Clock, Percent, Eye } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
-// Define data types
-type Candidate = {
+// Type for the data coming from our new API
+type CandidateWithAssessment = {
   id: string;
   name: string;
   email: string;
   createdAt: string;
+  takenAssessments: {
+    id: string;
+    status: string;
+    technicalAssessment: {
+      score: number | null;
+    } | null;
+  }[];
 };
 
 type CodingQuestion = {
-    id: string;
-    title: string;
-    difficulty: string;
+  id: string;
+  title: string;
+  difficulty: string;
+};
+
+// Helper component for displaying status with icons and colors
+const StatusBadge = ({ status }: { status: string | undefined }) => {
+    if (status === 'COMPLETED') {
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600"><CheckCircle className="mr-1 h-3 w-3" /> Completed</Badge>;
+    }
+    if (status === 'PENDING') {
+        return <Badge variant="secondary"><Clock className="mr-1 h-3 w-3" /> Pending</Badge>;
+    }
+    return <Badge variant="outline">Not Assigned</Badge>;
 };
 
 export default function HrDashboardUpgraded() {
   const router = useRouter();
   const { toast } = useToast();
-  
-  // ✅ FIX: Get both the user and the loading status from the auth store
   const { user, isLoading: isAuthLoading } = useAuthStore();
 
-  // State for page data
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidates, setCandidates] = useState<CandidateWithAssessment[]>([]);
   const [questions, setQuestions] = useState<CodingQuestion[]>([]);
-  
-  // State for page UI
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  // State for the dialog form
   const [selectedCandidate, setSelectedCandidate] = useState('');
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    // ✅ FIX: Wait until the authentication check is complete before doing anything
-    if (isAuthLoading) {
-      return; 
-    }
-    
-    // If auth is done and there's no user, or the user is not HR, redirect.
-    if (!user || user.role.toUpperCase() !== 'HR') {
-        router.push('/login');
-        return;
-    }
-
-    // If we have a valid HR user, proceed to fetch data for the dashboard
-    const fetchData = async () => {
+  const fetchData = async () => {
       setIsDataLoading(true);
       try {
         const [candsRes, questsRes] = await Promise.all([
@@ -72,7 +72,8 @@ export default function HrDashboardUpgraded() {
             fetch('/api/admin/questions')
         ]);
 
-        if (!candsRes.ok || !questsRes.ok) throw new Error("Failed to fetch page data");
+        if (!candsRes.ok) throw new Error("Failed to fetch candidates");
+        if (!questsRes.ok) throw new Error("Failed to fetch questions");
         
         const candsData = await candsRes.json();
         const questsData = await questsRes.json();
@@ -84,14 +85,21 @@ export default function HrDashboardUpgraded() {
       } finally {
         setIsDataLoading(false);
       }
-    };
+  };
+
+  useEffect(() => {
+    if (isAuthLoading) return;
+    
+    if (!user || (user.role.toUpperCase() !== 'HR' && user.role.toUpperCase() !== 'ADMIN')) {
+        router.push('/login');
+        return;
+    }
 
     fetchData();
 
   }, [user, isAuthLoading, router]);
 
   const handleCreateAssessment = async () => {
-    // This function is correct
     setIsSubmitting(true);
     try {
         const response = await fetch('/api/hr/assessments', {
@@ -112,6 +120,9 @@ export default function HrDashboardUpgraded() {
         setSelectedCandidate('');
         setSelectedQuestions([]);
         setIsDialogOpen(false);
+        
+        fetchData();
+
     } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive"});
     } finally {
@@ -119,14 +130,19 @@ export default function HrDashboardUpgraded() {
     }
   };
 
-  const filteredCandidates = candidates.filter(
-    (c) =>
-      c.name.toLowerCase().includes(query.toLowerCase()) ||
-      c.email.toLowerCase().includes(query.toLowerCase())
+  const filteredCandidates = useMemo(() => 
+    candidates.filter(
+        (c) =>
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        c.email.toLowerCase().includes(query.toLowerCase())
+    ), [candidates, query]);
+
+  const assignableCandidates = useMemo(() => 
+    candidates.filter(c => c.takenAssessments.length === 0), 
+    [candidates]
   );
 
-  // ✅ FIX: Show a full-page loading spinner while waiting for auth and initial data
-  if (isAuthLoading || isDataLoading) {
+  if (isAuthLoading) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center">
             <LoaderCircle className="h-10 w-10 animate-spin text-primary" />
@@ -134,7 +150,6 @@ export default function HrDashboardUpgraded() {
     );
   }
   
-  // The rest of your component's JSX is well-structured and does not need changes.
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden md:flex w-72 flex-col border-r bg-card fixed inset-y-0">
@@ -153,134 +168,145 @@ export default function HrDashboardUpgraded() {
       </aside>
       <main className="flex-1 md:ml-72">
         <div className="p-6 md:pt-8 md:px-8 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center mb-6 md:mb-8 justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">Candidate Management</h1>
-              <p className="text-muted-foreground mt-1">
-                View, track, and manage all candidates in your pipeline.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <ModeToggle />
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button><FilePlus2 className="mr-2 h-4 w-4" />Create Assessment</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Create New Assessment</DialogTitle>
-                        <DialogDescription>Assign a technical assessment to a candidate.</DialogDescription>
-                    </DialogHeader>
-                    {/* Dialog Content */}
-                    <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="candidate">Candidate</Label>
-                            <Select value={selectedCandidate} onValueChange={setSelectedCandidate}>
-                                <SelectTrigger><SelectValue placeholder="Select a candidate..." /></SelectTrigger>
-                                <SelectContent>
-                                    {candidates.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.email})</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Coding Questions</Label>
-                            <p className="text-sm text-muted-foreground">Select one or more questions.</p>
-                            <div className="max-h-48 overflow-y-auto space-y-2 rounded-md border p-2">
-                                {questions.map(q => (
-                                    <div key={q.id} className={`flex items-center justify-between p-2 rounded-md cursor-pointer ${selectedQuestions.includes(q.id) ? 'bg-primary/10' : ''}`}
-                                        onClick={() => {
-                                            setSelectedQuestions(prev => 
-                                                prev.includes(q.id) ? prev.filter(id => id !== q.id) : [...prev, q.id]
-                                            );
-                                        }}
-                                    >
-                                        <span>{q.title}</span>
-                                        <Badge variant="secondary">{q.difficulty}</Badge>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={handleCreateAssessment} disabled={isSubmitting || !selectedCandidate || selectedQuestions.length === 0}>
-                            {isSubmitting ? "Assigning..." : "Assign Assessment"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+          <div className="flex flex-col md:flex-row md:items-center mb-6 md:mb-8 justify-between gap-4">
+              <div>
+                  <h1 className="text-2xl md:text-3xl font-bold">Candidate Management</h1>
+                  <p className="text-muted-foreground mt-1">
+                      View, track, and manage all candidates in your pipeline.
+                  </p>
+              </div>
+              <div className="flex items-center gap-2">
+                  <ModeToggle />
+                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                      <DialogTrigger asChild>
+                          <Button><FilePlus2 className="mr-2 h-4 w-4" />Create Assessment</Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                              <DialogTitle>Create New Assessment</DialogTitle>
+                              <DialogDescription>Assign a technical assessment to a candidate who has not been assessed yet.</DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                              <div className="space-y-2">
+                                  <Label htmlFor="candidate">Candidate</Label>
+                                  <Select value={selectedCandidate} onValueChange={setSelectedCandidate}>
+                                      <SelectTrigger><SelectValue placeholder="Select a candidate..." /></SelectTrigger>
+                                      <SelectContent>
+                                          {assignableCandidates.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.email})</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="space-y-2">
+                                  <Label>Coding Questions</Label>
+                                  <div className="max-h-48 overflow-y-auto space-y-2 rounded-md border p-2">
+                                      {questions.map(q => (
+                                          <div key={q.id} className={`flex items-center justify-between p-2 rounded-md cursor-pointer ${selectedQuestions.includes(q.id) ? 'bg-primary/10' : ''}`}
+                                              onClick={() => {
+                                                  setSelectedQuestions(prev => 
+                                                      prev.includes(q.id) ? prev.filter(id => id !== q.id) : [...prev, q.id]
+                                                  );
+                                              }}
+                                          >
+                                              <span>{q.title}</span>
+                                              <Badge variant="secondary">{q.difficulty}</Badge>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          </div>
+                          <DialogFooter>
+                              <Button onClick={handleCreateAssessment} disabled={isSubmitting || !selectedCandidate || selectedQuestions.length === 0}>
+                                  {isSubmitting ? "Assigning..." : "Assign Assessment"}
+                              </Button>
+                          </DialogFooter>
+                      </DialogContent>
+                  </Dialog>
+              </div>
           </div>
-            {/* Main Content Card */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle>All Candidates</CardTitle>
-                            <CardDescription>A list of all registered candidates.</CardDescription>
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search by name or email..."
-                                className="pl-10 w-64"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                            />
-                        </div>
+          
+          <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>All Candidates</CardTitle>
+                        <CardDescription>A list of all registered candidates and their assessment status.</CardDescription>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Registered On</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {error && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-10">
-                                            <div className="flex flex-col items-center gap-2 text-destructive">
-                                                <AlertTriangle className="h-8 w-8" />
-                                                <p className="font-semibold">Failed to load data</p>
-                                                <p className="text-sm">{error}</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                {!error && filteredCandidates.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
-                                            No candidates found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                {!error && filteredCandidates.map((candidate) => (
-                                    <TableRow key={candidate.id}>
-                                        <TableCell className="font-medium">{candidate.name}</TableCell>
-                                        <TableCell>{candidate.email}</TableCell>
-                                        <TableCell>{new Date(candidate.createdAt).toLocaleDateString()}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="outline" size="sm" onClick={() => {
-                                                setSelectedCandidate(candidate.id);
-                                                setIsDialogOpen(true);
-                                            }}>
-                                                <FilePlus2 className="mr-2 h-4 w-4" />
-                                                Assign
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name or email..."
+                            className="pl-10 w-64"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+              </CardHeader>
+              <CardContent>
+                  <div className="rounded-md border">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>Assessment Status</TableHead>
+                                  <TableHead>Score</TableHead>
+                                  <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {isDataLoading ? (
+                                  <TableRow><TableCell colSpan={5} className="text-center p-10"><LoaderCircle className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                              ) : error ? (
+                                  <TableRow><TableCell colSpan={5} className="text-center p-10 text-destructive">{error}</TableCell></TableRow>
+                              ) : filteredCandidates.length === 0 ? (
+                                  <TableRow><TableCell colSpan={5} className="text-center p-10 text-muted-foreground">No candidates found.</TableCell></TableRow>
+                              ) : (
+                                  filteredCandidates.map((candidate) => {
+                                      const latestAssessment = candidate.takenAssessments[0];
+                                      const status = latestAssessment?.status;
+                                      const score = latestAssessment?.technicalAssessment?.score;
+
+                                      return (
+                                          <TableRow key={candidate.id}>
+                                              <TableCell className="font-medium">{candidate.name}</TableCell>
+                                              <TableCell>{candidate.email}</TableCell>
+                                              <TableCell><StatusBadge status={status} /></TableCell>
+                                              <TableCell>
+                                                  {typeof score === 'number' ? (
+                                                      <span className="font-semibold">{score.toFixed(1)}%</span>
+                                                  ) : (
+                                                      <span className="text-muted-foreground">-</span>
+                                                  )}
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                  {!latestAssessment && (
+                                                      <Button variant="outline" size="sm" onClick={() => {
+                                                          setSelectedCandidate(candidate.id);
+                                                          setIsDialogOpen(true);
+                                                      }}>
+                                                          <FilePlus2 className="mr-2 h-4 w-4" />
+                                                          Assign
+                                                      </Button>
+                                                  )}
+                                                  {latestAssessment && status === 'COMPLETED' && (
+                                                      <Button variant="outline" size="sm" asChild>
+                                                          <Link href={`/hr-dashboard/submission/${latestAssessment.id}`}>
+                                                            <Eye className="mr-2 h-4 w-4" />
+                                                            View
+                                                          </Link>
+                                                      </Button>
+                                                  )}
+                                              </TableCell>
+                                          </TableRow>
+                                      );
+                                  })
+                              )}
+                          </TableBody>
+                      </Table>
+                  </div>
+              </CardContent>
+          </Card>
         </div>
       </main>
     </div>

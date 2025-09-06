@@ -20,7 +20,11 @@ async function evaluateCode(questionIds: string[], code: string, language: strin
     body: JSON.stringify({ questionIds, code, language }),
   });
 
-  if (!response.ok) throw new Error('Code evaluation failed');
+  if (!response.ok) {
+    const errorBody = await response.json();
+    console.error("Evaluation API failed with status:", response.status, "and body:", errorBody);
+    throw new Error('Code evaluation failed');
+  }
   return response.json();
 }
 
@@ -47,6 +51,12 @@ export async function POST(request: Request) {
       0
     );
 
+    // ==================== THIS IS THE NEW CODE ====================
+    // 1. We calculate the score as a percentage.
+    //    We also check if totalTestCases is more than 0 to avoid a division-by-zero error.
+    const finalScore = totalTestCases > 0 ? (totalPassCount / totalTestCases) * 100 : 0;
+    // =============================================================
+
     const finalResults = {
       passCount: totalPassCount,
       totalCount: totalTestCases,
@@ -62,6 +72,10 @@ export async function POST(request: Request) {
         status: 'COMPLETED',
         completedAt: new Date(),
         evaluationResults: finalResults,
+        // ==================== THIS IS THE NEW CODE ====================
+        // 2. We save the 'finalScore' we just calculated into the 'score' field in our database.
+        score: finalScore,
+        // =============================================================
       },
     });
 
@@ -73,6 +87,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: 'Submission saved and assessment completed successfully.',
       results: updatedAssessment.evaluationResults,
+      // ==================== THIS IS THE NEW CODE ====================
+      // 3. We also send the score back to the browser, which can be useful.
+      score: updatedAssessment.score,
+      // =============================================================
     });
   } catch (error) {
     console.error('Failed to process submission:', error);

@@ -14,12 +14,12 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
   name      String
-  email     String   @unique
+  email     String    @unique
   password  String
-  role      Role     @default(STUDENT)
-  createdAt DateTime @default(now())
+  role      Role      @default(STUDENT)
+  createdAt DateTime  @default(now())
 
   createdAssessments Assessment[] @relation("CreatedByHR")
   takenAssessments   Assessment[] @relation("TakenByCandidate")
@@ -27,11 +27,11 @@ model User {
 }
 
 model Assessment {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  candidateId String   @db.ObjectId
-  hrId        String   @db.ObjectId
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  candidateId String    @db.ObjectId
+  hrId        String    @db.ObjectId
   status      String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   candidate User @relation("TakenByCandidate", fields: [candidateId], references: [id])
   hr        User @relation("CreatedByHR", fields: [hrId], references: [id])
@@ -42,19 +42,20 @@ model Assessment {
 }
 
 model TechnicalAssessment {
-  id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  assessmentId      String           @unique @db.ObjectId
-  assessment        Assessment       @relation(fields: [assessmentId], references: [id])
-  status            String
-  code              String?
-  language          String?
-  startedAt         DateTime         @default(now())
-  completedAt       DateTime?
-  evaluationResults Json?
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId        String    @unique @db.ObjectId
+  assessment          Assessment @relation(fields: [assessmentId], references: [id])
+  status              String
+  code                String?
+  language            String?
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  evaluationResults   Json?
+  score               Float? // Stores the final score as a percentage
 
   // --- EXPLICIT MANY-TO-MANY RELATIONSHIP ---
-  questionIds       String[]         @db.ObjectId
-  questions         CodingQuestion[] @relation(fields: [questionIds], references: [id])
+  questionIds         String[]  @db.ObjectId
+  questions           CodingQuestion[] @relation(fields: [questionIds], references: [id])
 }
 
 model BehavioralInterview {
@@ -82,15 +83,15 @@ model Report {
 }
 
 model CodingQuestion {
-  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
-  title                String
-  description          String
-  difficulty           String
-  testCases            Json
-  createdAt            DateTime              @default(now())
+  id                     String    @id @default(auto()) @map("_id") @db.ObjectId
+  title                  String
+  description            String
+  difficulty             String
+  testCases              Json
+  createdAt              DateTime  @default(now())
 
-  // --- EXPLICIT MANY-TO-MANY RELATIONSHIP ---
-  technicalAssessmentIds String[]              @db.ObjectId
+  // --- EXPLIC-IT MANY-TO-MANY RELATIONSHIP ---
+  technicalAssessmentIds String[]             @db.ObjectId
   technicalAssessments   TechnicalAssessment[] @relation(fields: [technicalAssessmentIds], references: [id])
 
   @@index([createdAt])

@@ -2,12 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "commonjs",
+    "target": "es2017",
     "outDir": "dist",
     "noEmit": false,
-    // ✅ FIX: Target a modern JavaScript version
-    "target": "es2020",
-    // ✅ FIX: Add this flag to allow the loop to work
-    "downlevelIteration": true
+    "esModuleInterop": true,
+    "isolatedModules": false,
+    "moduleResolution": "node"
   },
-  "include": ["server.ts"]
+  "include": ["server.ts", "lib/auth.ts"]
 }

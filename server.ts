@@ -1,4 +1,4 @@
-// ✅ FIX: Load .env file automatically. No path needed.
+// Load environment variables
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -7,7 +7,7 @@ import { parse } from "url";
 import next from "next";
 import { Server, Socket } from "socket.io";
 import { GoogleGenerativeAI, ChatSession, Content } from "@google/generative-ai";
-import { verifyJwt, UserJwtPayload } from "./lib/auth"; 
+import { verifyJwt, UserJwtPayload } from "./lib/auth";
 import * as cookie from "cookie";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -17,12 +17,13 @@ const port = 3000;
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// This check is correct and important
+// Ensure the Gemini API Key is present
 if (!process.env.GEMINI_API_KEY) {
   throw new Error("GEMINI_API_KEY is not defined in the environment variables.");
 }
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Type Definitions
 interface Message {
   sender: "user" | "ai";
   text: string;
@@ -30,7 +31,7 @@ interface Message {
 
 interface InterviewSession {
     chat: ChatSession;
-    history: Content[]; 
+    history: Content[];
     participants: Set<string>;
 }
 const interviewSessions = new Map<string, InterviewSession>();
@@ -45,15 +46,14 @@ app.prepare().then(() => {
     handle(req, res, parsedUrl);
   });
 
+  // Initialize the Socket.IO server
   const io = new Server(httpServer, {
-    path: "/api/socketio",
+    path: "/api/socketio", // This path must match the client
   });
 
-  // ✅ FIX: Made the entire function async to handle the await keyword
+  // Middleware for authenticating socket connections
   io.use(async (socket: AuthenticatedSocket, next) => {
     const cookies = cookie.parse(socket.handshake.headers.cookie || "");
-    
-    // ✅ FIX: Changed from 'accessToken' to 'token' to match your login API
     const token = cookies.token;
 
     if (!token) {
@@ -61,17 +61,16 @@ app.prepare().then(() => {
     }
 
     try {
-      // ✅ FIX: Added 'await' to correctly get the resolved value from the promise
       const payload = await verifyJwt(token);
       if (!payload) { throw new Error("Invalid token."); }
-      socket.user = payload; 
+      socket.user = payload;
       next();
     } catch (error) {
       return next(new Error("Authentication error: Invalid token."));
     }
   });
 
-  // Your io.on("connection", ...) logic is well-written and does not need changes.
+  // Main connection handler
   io.on("connection", (socket: AuthenticatedSocket) => {
     console.log(`✅ User connected: ${socket.id}, Name: ${socket.user?.name}`);
 
@@ -136,23 +135,22 @@ app.prepare().then(() => {
 
     socket.on("disconnect", () => {
       console.log(`👋 User disconnected: ${socket.id}`);
-      for (const [interviewId, session] of interviewSessions.entries()) {
-          if (session.participants.has(socket.id)) {
-              session.participants.delete(socket.id);
-              console.log(`[Room: ${interviewId}] User ${socket.id} left. Participants remaining: ${session.participants.size}`);
-              
-              if (session.participants.size === 0) {
-                  setTimeout(() => {
-                      const currentSession = interviewSessions.get(interviewId);
-                      if (currentSession && currentSession.participants.size === 0) {
-                          console.log(`[Room: ${interviewId}] Cleaning up inactive session.`);
-                          interviewSessions.delete(interviewId);
-                      }
-                  }, 300000); // 5 minutes
-              }
-              break;
+      interviewSessions.forEach((session, interviewId) => {
+        if (session.participants.has(socket.id)) {
+          session.participants.delete(socket.id);
+          console.log(`[Room: ${interviewId}] User left. Participants: ${session.participants.size}`);
+          
+          if (session.participants.size === 0) {
+              setTimeout(() => {
+                  const currentSession = interviewSessions.get(interviewId);
+                  if (currentSession && currentSession.participants.size === 0) {
+                      console.log(`[Room: ${interviewId}] Cleaning up inactive session.`);
+                      interviewSessions.delete(interviewId);
+                  }
+              }, 300000); // 5 minutes
           }
-      }
+        }
+      });
     });
   });
 

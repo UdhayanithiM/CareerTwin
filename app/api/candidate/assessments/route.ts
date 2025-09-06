@@ -1,7 +1,6 @@
-//app/api/candidate/assessments/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt, UserJwtPayload } from '@/lib/auth'; // Assuming UserJwtPayload is exported from auth
+import { verifyJwt, UserJwtPayload } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
@@ -12,10 +11,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Authentication token not found. Please log in.' }, { status: 401 });
   }
 
-  // ✅ FIX: Wait for the promise to resolve
   const decoded: UserJwtPayload | null = await verifyJwt(token);
 
-  // ✅ FIX: Check the resolved value, not the promise
   if (!decoded || typeof decoded.id !== 'string') {
     return NextResponse.json({ error: 'Invalid session. Please log in again.' }, { status: 401 });
   }
@@ -25,7 +22,6 @@ export async function GET(request: Request) {
   try {
     const assessments = await prisma.assessment.findMany({
       where: { candidateId: userId },
-      // Your select and orderBy clauses are correct
       select: {
         id: true,
         status: true,
@@ -35,7 +31,14 @@ export async function GET(request: Request) {
             id: true,
             status: true,
             evaluationResults: true,
+            // --- ADD THIS LINE ---
+            score: true, // This will now include the score in the API response
           }
+        },
+        behavioralInterview: { // Also select this to help differentiate assessment types
+            select: {
+                id: true,
+            }
         },
         report: {
           select: {

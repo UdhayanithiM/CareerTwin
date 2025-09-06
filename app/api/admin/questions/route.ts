@@ -8,7 +8,12 @@ import { z } from "zod";
 export async function GET() {
   const token = cookies().get("token");
   const payload = token ? await verifyJwt(token.value) : null;
-  if (payload?.role.toUpperCase() !== "ADMIN") {
+
+  // --- THIS IS THE FIX ---
+  // The original code only allowed "ADMIN".
+  // We now check if the user is NOT an ADMIN AND NOT an HR.
+  // This allows both roles to fetch the list of questions.
+  if (!payload || (payload.role.toUpperCase() !== "ADMIN" && payload.role.toUpperCase() !== "HR")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -32,13 +37,14 @@ const questionSchema = z.object({
 });
 
 // --- POST - create a new coding question ---
+// This function remains ADMIN-only, which is correct.
 export async function POST(req: Request) {
   const token = cookies().get("token");
   const payload = token ? await verifyJwt(token.value) : null;
   if (payload?.role.toUpperCase() !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  
+
   try {
     const body = await req.json();
     const validation = questionSchema.safeParse(body);
@@ -59,3 +65,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create coding question" }, { status: 500 });
   }
 }
+

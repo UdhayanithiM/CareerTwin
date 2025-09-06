@@ -1,10 +1,9 @@
-//app/dashboard/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, Code, Gauge, User, BookOpen, CalendarClock, AlertTriangle, FileText, CheckCircle, Pencil, MessageSquare } from "lucide-react"
+import { ArrowRight, Code, Gauge, User, BookOpen, CalendarClock, AlertTriangle, FileText, CheckCircle, Pencil, MessageSquare, ShieldCheck, ShieldX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -14,22 +13,18 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
 
-// --- UPDATED TYPE DEFINITION ---
-// This type reflects the full structure from your Prisma schema, which is necessary
-// for the dashboard to differentiate between assessment types.
+// This type definition now correctly reflects our data structure
 type Assessment = {
   id: string;
   status: string;
   createdAt: string;
   technicalAssessment: {
-    evaluationResults?: { passCount: number; totalCount: number; } | null;
+    score?: number | null;
   } | null;
-  // The presence of this object indicates it's a behavioral interview.
-  behavioralInterview: {} | null; 
+  behavioralInterview: {} | null; // We just need to know if it exists
   report: { id: string; } | null;
 };
 
-// --- Animation Variants ---
 const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -43,7 +38,6 @@ const itemVariants = {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
 };
 
-// --- Main Dashboard Component ---
 export default function StudentDashboard() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -57,7 +51,7 @@ export default function StudentDashboard() {
     const fetchAssessments = async () => {
       try {
         setIsLoading(true);
-        setError(null); // Reset error state on each fetch attempt
+        setError(null);
         const response = await fetch('/api/candidate/assessments', {
             credentials: 'include',
         });
@@ -100,7 +94,6 @@ export default function StudentDashboard() {
                         <span className="text-primary">Forti</span>Twin
                     </span>
                 </Link>
-                {/* --- NAVIGATION UPDATED --- */}
                 <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                     <Link href="/dashboard" className="text-primary font-semibold">Dashboard</Link>
                     <Link href="/report" className="text-muted-foreground hover:text-primary transition-colors">Reports</Link>
@@ -206,41 +199,59 @@ function AssessmentList({ assessments, isLoading, error, type }: { assessments: 
     );
 }
 
-// --- UPDATED AssessmentCard COMPONENT ---
 function AssessmentCard({ assessment }: { assessment: Assessment }) {
+    const PASSING_SCORE = 70;
     const isCompleted = assessment.status === 'COMPLETED';
-    
-    // This is the key logic: determine the type based on which nested object exists in the data.
     const isTechnical = !!assessment.technicalAssessment;
     const isBehavioral = !!assessment.behavioralInterview;
+    const score = assessment.technicalAssessment?.score;
+    const hasPassed = typeof score === 'number' && score >= PASSING_SCORE;
 
     let title = "General Assessment";
     let icon = <FileText className="h-4 w-4" />;
     let focusText = "Awaiting details";
-    let startLink = "/dashboard"; // A safe default link
-
-    if (isTechnical) {
+    let startLink = `/technical-assessment/${assessment.id}`;
+    let statusIcon = <Pencil className="mr-1.5 h-4 w-4"/>;
+    let statusText = "Pending";
+    let statusColor = "text-blue-600";
+    
+    // Determine title and other details based on the current state
+    if (isCompleted) {
+        title = "Assessment Completed";
+        icon = <CheckCircle className="h-4 w-4" />;
+        focusText = "Awaiting final report";
+    } else if (assessment.technicalAssessment && assessment.behavioralInterview) {
+        // This is the standard two-stage assessment, and it's pending
         title = "Technical Skills Assessment";
         icon = <Code className="h-4 w-4" />;
         focusText = "Focus: Problem Solving & Algorithms";
         startLink = `/technical-assessment/${assessment.id}`;
     } else if (isBehavioral) {
+        // This handles a standalone behavioral interview
         title = "Behavioral Interview";
         icon = <MessageSquare className="h-4 w-4" />;
         focusText = "Focus: Communication & Soft Skills";
         startLink = `/take-interview/${assessment.id}`;
     }
-    
-    const description = `Assigned on ${new Date(assessment.createdAt).toLocaleDateString()}`;
-    const results = assessment.technicalAssessment?.evaluationResults;
-    const score = results?.passCount;
-    const total = results?.totalCount;
 
+
+    if (isCompleted) {
+        if (hasPassed) {
+            statusIcon = <ShieldCheck className="mr-1.5 h-4 w-4"/>;
+            statusText = "Passed";
+            statusColor = "text-green-600";
+        } else {
+            statusIcon = <ShieldX className="mr-1.5 h-4 w-4"/>;
+            statusText = "Completed";
+            statusColor = "text-gray-600";
+        }
+    }
+    
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <CardDescription>Assigned on {new Date(assessment.createdAt).toLocaleDateString()}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="flex items-center justify-between">
@@ -248,46 +259,52 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
                         {icon}
                         <span>{focusText}</span>
                     </div>
-                    {isCompleted ? (
-                        <span className="text-green-600 font-semibold flex items-center text-sm"><CheckCircle className="mr-1.5 h-4 w-4"/>Completed</span>
-                    ) : (
-                        <span className="text-blue-600 font-semibold flex items-center text-sm"><Pencil className="mr-1.5 h-4 w-4"/>Pending</span>
-                    )}
+                    <span className={`font-semibold flex items-center text-sm ${statusColor}`}>
+                        {statusIcon}
+                        {statusText}
+                    </span>
                 </div>
-                {isCompleted && isTechnical && score !== undefined && total !== undefined && (
+                {isCompleted && typeof score === 'number' && (
                      <div className="mt-4">
-                        <div className="flex items-center justify-between font-medium text-sm">
-                            <span>Score:</span>
-                            <span>{score} / {total} Test Cases Passed</span>
-                        </div>
-                        <Progress value={total > 0 ? (score / total) * 100 : 0} className="h-2 mt-2" />
+                         <div className="flex items-center justify-between font-medium text-sm">
+                             <span>Final Technical Score:</span>
+                             <span className={`font-bold text-lg ${hasPassed ? 'text-primary' : 'text-destructive'}`}>
+                                {score.toFixed(1)}%
+                             </span>
+                         </div>
+                         <Progress value={score} className="h-2 mt-2" />
                     </div>
                 )}
             </CardContent>
             <CardFooter className="flex justify-end">
-                {isCompleted ? (
-                    <Button variant="secondary" asChild><Link href={`/report/${assessment.report?.id || assessment.id}`}>View Report</Link></Button>
-                ) : (
+                {/* --- THIS IS THE CORRECTED AND FINAL LOGIC --- */}
+                
+                {/* 1. If the assessment is PENDING, show "Start Assessment" */}
+                {assessment.status === 'PENDING' && (
                     <Button asChild><Link href={startLink}>Start Assessment <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+                )}
+
+                {/* 2. If the assessment is COMPLETED and they PASSED, show "Proceed to Interview" */}
+                {assessment.status === 'COMPLETED' && hasPassed && (
+                    // We now link to the dynamic interview page using the main assessment ID
+                    <Button asChild><Link href={`/take-interview/${assessment.id}`}>Proceed to Interview <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+                )}
+                
+                {/* 3. If the assessment is COMPLETED but they FAILED, show "View Report" */}
+                {assessment.status === 'COMPLETED' && !hasPassed && (
+                    <Button variant="secondary" asChild><Link href={`/report/${assessment.id}`}>View Report</Link></Button>
                 )}
             </CardFooter>
         </Card>
     );
 }
 
-// --- Helper Components (Unchanged) ---
-
+// --- Helper Components (No changes needed) ---
 function EmptyState({ type }: { type: 'upcoming' | 'completed' }) {
     const content = {
-        upcoming: {
-            title: "No Upcoming Assessments",
-            description: "You're all caught up! New assessments will appear here when assigned by an HR professional.",
-        },
-        completed: {
-            title: "No Completed Assessments",
-            description: "Your past reports will be listed here after you complete an assessment.",
-        }
-    }
+        upcoming: { title: "No Upcoming Assessments", description: "You're all caught up! New assessments will appear here." },
+        completed: { title: "No Completed Assessments", description: "Your past reports will be listed here after you complete an assessment." }
+    };
     return (
         <div className="text-center py-12 border-2 border-dashed rounded-lg">
             <div className="inline-block bg-muted p-4 rounded-full mb-4">
