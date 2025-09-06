@@ -1,3 +1,4 @@
+//app/api/candidate/assessments/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt, UserJwtPayload } from '@/lib/auth'; // Assuming UserJwtPayload is exported from auth

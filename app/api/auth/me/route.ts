@@ -1,3 +1,4 @@
+//app/api/auth/me/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 

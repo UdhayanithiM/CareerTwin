@@ -1,3 +1,7 @@
+// next.config.mjs
+
+import 'dotenv/config'; // This line loads your .env file
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
