@@ -1,65 +1,68 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { jwtVerify } from 'jose';
+// in app/api/hr/assessments/route.ts
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-const secretKey = new TextEncoder().encode(JWT_SECRET);
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
+import { verifyJwt } from "@/lib/auth";
+import { z } from "zod";
 
-export async function POST(request: NextRequest) {
-  const token = request.cookies.get('token')?.value;
+const createAssessmentSchema = z.object({
+  candidateId: z.string().min(1, "A candidate must be selected."),
+  questionIds: z.array(z.string()).min(1, "At least one question must be selected."),
+});
 
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function POST(request: Request) {
+  const token = cookies().get("token");
+  const payload = token ? await verifyJwt(token.value) : null;
+
+  if (!payload || (payload.role.toUpperCase() !== "HR" && payload.role.toUpperCase() !== "ADMIN")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const hrId = payload.id;
 
   try {
-    const { payload } = await jwtVerify(token, secretKey);
-    const role = (payload.role as string)?.toUpperCase();
-    const hrId = payload.id as string;
-
-    if (role !== 'HR' && role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const body = await request.json();
-    const { candidateId, questionIds } = body;
-
-    if (!candidateId || !questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
-      return NextResponse.json({ error: 'Invalid input: candidateId and questionIds are required.' }, { status: 400 });
+    const validation = createAssessmentSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error.errors[0].message }, { status: 400 });
     }
+    const { candidateId, questionIds } = validation.data;
 
-    // --- THIS IS THE CORRECTED LOGIC ---
-    // We now create the main assessment, the technical part, AND the behavioral part
-    // all at once, ensuring the entire process is linked from the start.
-    const newAssessment = await prisma.assessment.create({
-      data: {
-        candidateId: candidateId,
-        hrId: hrId,
-        status: 'PENDING', // The overall status is pending
-        // Create the nested TechnicalAssessment
-        technicalAssessment: {
-          create: {
-            status: 'NOT_STARTED', // The technical test has not been started
-            questionIds: questionIds,
-          },
+    // Use a Prisma transaction to ensure all related records are created together
+    await prisma.$transaction(async (tx) => {
+      // 1. Create the main Assessment record
+      const assessment = await tx.assessment.create({
+        data: {
+          candidateId: candidateId,
+          hrId: hrId,
+          status: "PENDING",
         },
-        // ALSO Create the nested BehavioralInterview
-        behavioralInterview: {
-            create: {
-                status: 'LOCKED', // The interview is locked until the technical part is passed
-            }
+      });
+
+      // 2. Create the associated TechnicalAssessment record
+      await tx.technicalAssessment.create({
+        data: {
+          assessmentId: assessment.id,
+          status: "NOT_STARTED",
+          questions: { connect: questionIds.map((id) => ({ id })) },
+        },
+      });
+
+      // --- THIS IS THE PERMANENT FIX ---
+      // 3. Create the BehavioralInterview record at the same time.
+      //    This guarantees it exists and prevents the "record not found" error.
+      await tx.behavioralInterview.create({
+        data: {
+            assessmentId: assessment.id,
+            status: "NOT_STARTED",
         }
-      },
+      });
+      // --- END OF FIX ---
     });
 
-    return NextResponse.json({ success: true, assessment: newAssessment }, { status: 201 });
-
+    return NextResponse.json({ message: "Assessment created successfully" }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.name === 'JWTExpired') {
-        return NextResponse.json({ error: 'Unauthorized: Token has expired.' }, { status: 401 });
-    }
-    
-    console.error('Failed to create assessment:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("POST /api/hr/assessments error:", error);
+    return NextResponse.json({ error: "Failed to create assessment" }, { status: 500 });
   }
 }

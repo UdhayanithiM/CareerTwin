@@ -1,56 +1,47 @@
-//app/api/hr/candidates/route.ts
+// in app/api/hr/candidates/route.ts
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt, UserJwtPayload } from '@/lib/auth';
+import { verifyJwt } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
-  const cookieStore = cookies();
-  const token = cookieStore.get('token')?.value;
-
+  const token = cookies().get('token')?.value;
   if (!token) {
-    return NextResponse.json({ error: 'Authentication token not found.' }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  const decoded: UserJwtPayload | null = await verifyJwt(token);
-
-  // Secure this route for HR and ADMIN roles
-  if (!decoded || (decoded.role !== 'HR' && decoded.role !== 'ADMIN')) {
-    return NextResponse.json({ error: 'Forbidden: Access is denied.' }, { status: 403 });
+  const payload = await verifyJwt(token);
+  if (!payload || (payload.role !== 'HR' && payload.role !== 'ADMIN')) {
+    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
   try {
-    // Fetch all users who are candidates (STUDENT role)
     const candidates = await prisma.user.findMany({
-      where: {
-        role: 'STUDENT',
-      },
+      where: { role: 'STUDENT' },
       select: {
         id: true,
         name: true,
         email: true,
         createdAt: true,
-        // Include their assigned assessments
         takenAssessments: {
-          orderBy: {
-            createdAt: 'desc', // Get the most recent one first
-          },
-          take: 1, // We only need the latest assessment for the dashboard overview
-          select: {
-            id: true,
-            status: true,
-            // Include the technical part to get the score
+          orderBy: { createdAt: 'desc' },
+          // The `include` block tells Prisma to also fetch related data
+          include: {
             technicalAssessment: {
-              select: {
-                score: true,
-              },
+              select: { score: true }
             },
-          },
-        },
+            // --- THIS IS THE FIX ---
+            // We are now telling Prisma to also include the report
+            // that is linked to this assessment.
+            report: {
+              select: { id: true } // We only need the report's ID for the link
+            }
+            // --- END OF FIX ---
+          }
+        }
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json(candidates);

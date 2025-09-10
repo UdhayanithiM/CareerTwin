@@ -1,8 +1,13 @@
+// in tsconfig.server.json
+
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "commonjs",
-    "target": "es2017",
+    // --- THIS IS THE FIX ---
+    // Updated the target to a more modern version of JavaScript
+    "target": "es2020",
+    // --- END OF FIX ---
     "outDir": "dist",
     "noEmit": false,
     "esModuleInterop": true,

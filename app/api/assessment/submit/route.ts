@@ -1,15 +1,22 @@
+// in app/api/assessment/submit/route.ts
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyJwt } from '@/lib/auth';
+import { cookies } from 'next/headers';
 import { z } from 'zod';
 
+// Zod schema for validating the incoming submission data
 const submissionSchema = z.object({
-  assessmentId: z.string().nonempty('Assessment ID is required.'),
-  questionIds: z.array(z.string()).nonempty('At least one Question ID is required.'),
-  code: z.string().nonempty('Code submission cannot be empty.'),
-  language: z.string().nonempty('Language is required.'),
+  assessmentId: z.string().min(1, "Assessment ID is required"),
+  technicalAssessmentId: z.string().min(1, "Technical Assessment ID is required"),
+  code: z.string(), // Allow empty code, it will just fail evaluation
+  language: z.string().min(1, "Language is required"),
+  questionIds: z.array(z.string()).min(1, "Question IDs are required"),
 });
 
-async function evaluateCode(questionIds: string[], code: string, language: string) {
+// Helper function to call your own evaluation API securely on the server-side
+async function evaluateCodeOnServer(questionIds: string[], code: string, language: string) {
   const url = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}/api/assessment/evaluate`
     : `http://localhost:3000/api/assessment/evaluate`;
@@ -21,82 +28,66 @@ async function evaluateCode(questionIds: string[], code: string, language: strin
   });
 
   if (!response.ok) {
-    const errorBody = await response.json();
-    console.error("Evaluation API failed with status:", response.status, "and body:", errorBody);
-    throw new Error('Code evaluation failed');
+    throw new Error('Internal code evaluation failed.');
   }
   return response.json();
 }
 
 export async function POST(request: Request) {
+  const token = cookies().get("token");
+  const payload = token ? await verifyJwt(token.value) : null;
+
+  if (!payload) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const validation = submissionSchema.safeParse(body);
+
     if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body.', details: validation.error.flatten() },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: validation.error.errors[0].message }, { status: 400 });
     }
 
-    const { assessmentId, questionIds, code, language } = validation.data;
-    const evaluationData = await evaluateCode(questionIds, code, language);
+    const { assessmentId, technicalAssessmentId, code, language, questionIds } = validation.data;
 
-    const totalTestCases = evaluationData.results.reduce(
-      (sum: number, q: any) => sum + q.testCases.length,
-      0
-    );
-    const totalPassCount = evaluationData.results.reduce(
-      (sum: number, q: any) => sum + q.testCases.filter((t: any) => t.status === 'passed').length,
-      0
-    );
+    // --- Securely re-evaluate the code on the server ---
+    const evaluationData = await evaluateCodeOnServer(questionIds, code, language);
+    const evaluationResults = evaluationData.results[0].testCases;
 
-    // ==================== THIS IS THE NEW CODE ====================
-    // 1. We calculate the score as a percentage.
-    //    We also check if totalTestCases is more than 0 to avoid a division-by-zero error.
-    const finalScore = totalTestCases > 0 ? (totalPassCount / totalTestCases) * 100 : 0;
-    // =============================================================
+    // --- Calculate Final Score ---
+    const passedTestCases = evaluationResults.filter((r: any) => r.status === 'passed').length;
+    const totalTestCases = evaluationResults.length;
+    const score = totalTestCases > 0 ? (passedTestCases / totalTestCases) * 100 : 0;
 
-    const finalResults = {
-      passCount: totalPassCount,
-      totalCount: totalTestCases,
-      details: `Completed: ${totalPassCount} / ${totalTestCases} total test cases passed.`,
-      breakdown: evaluationData.results,
-    };
+    // --- Update Database in a Transaction ---
+    await prisma.$transaction(async (tx) => {
+      // 1. Update the TechnicalAssessment
+      await tx.technicalAssessment.update({
+        where: { id: technicalAssessmentId },
+        data: {
+          code,
+          language,
+          score,
+          evaluationResults: evaluationResults, // Prisma handles JSON casting
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      });
 
-    const updatedAssessment = await prisma.technicalAssessment.update({
-      where: { assessmentId },
-      data: {
-        code,
-        language,
-        status: 'COMPLETED',
-        completedAt: new Date(),
-        evaluationResults: finalResults,
-        // ==================== THIS IS THE NEW CODE ====================
-        // 2. We save the 'finalScore' we just calculated into the 'score' field in our database.
-        score: finalScore,
-        // =============================================================
-      },
+      // 2. Update the parent Assessment status to show it's done
+      await tx.assessment.update({
+        where: { id: assessmentId },
+        data: {
+          status: 'COMPLETED',
+        },
+      });
     });
 
-    await prisma.assessment.update({
-      where: { id: assessmentId },
-      data: { status: 'COMPLETED' },
-    });
+    return NextResponse.json({ message: 'Assessment submitted successfully!', score: score }, { status: 200 });
 
-    return NextResponse.json({
-      message: 'Submission saved and assessment completed successfully.',
-      results: updatedAssessment.evaluationResults,
-      // ==================== THIS IS THE NEW CODE ====================
-      // 3. We also send the score back to the browser, which can be useful.
-      score: updatedAssessment.score,
-      // =============================================================
-    });
   } catch (error) {
-    console.error('Failed to process submission:', error);
-    return NextResponse.json(
-      { error: 'An error occurred while processing the submission.' },
-      { status: 500 }
-    );
+    console.error('POST /api/assessment/submit error:', error);
+    return NextResponse.json({ error: 'Failed to submit assessment.' }, { status: 500 });
   }
 }

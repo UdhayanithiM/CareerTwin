@@ -1,3 +1,5 @@
+// in app/api/candidate/assessments/route.ts
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt, UserJwtPayload } from '@/lib/auth';
@@ -8,13 +10,13 @@ export async function GET(request: Request) {
   const token = cookieStore.get('token')?.value;
 
   if (!token) {
-    return NextResponse.json({ error: 'Authentication token not found. Please log in.' }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication token not found.' }, { status: 401 });
   }
 
   const decoded: UserJwtPayload | null = await verifyJwt(token);
 
   if (!decoded || typeof decoded.id !== 'string') {
-    return NextResponse.json({ error: 'Invalid session. Please log in again.' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid session.' }, { status: 401 });
   }
 
   const userId = decoded.id;
@@ -28,18 +30,16 @@ export async function GET(request: Request) {
         createdAt: true,
         technicalAssessment: {
           select: {
-            id: true,
-            status: true,
-            evaluationResults: true,
-            // --- ADD THIS LINE ---
-            score: true, // This will now include the score in the API response
+            score: true,
           }
         },
-        behavioralInterview: { // Also select this to help differentiate assessment types
+        behavioralInterview: {
             select: {
                 id: true,
             }
         },
+        // --- THIS IS THE CRUCIAL PART ---
+        // We need to fetch the report and its ID if it exists
         report: {
           select: {
             id: true

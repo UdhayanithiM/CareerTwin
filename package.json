@@ -5,12 +5,12 @@
   "description": "A modern interview and assessment platform built with Next.js, React, and Tailwind CSS.",
   "main": "main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "nodemon --watch server.ts --exec ts-node --project tsconfig.server.json server.ts",
     "build": "next build",
-    "start": "NODE_ENV=production node server.ts",
+    "start": "NODE_ENV=production ts-node --project tsconfig.server.json server.ts",
     "lint": "next lint",
-    "prisma": "dotenv -e .env.local -- prisma",
-    "seed": "dotenv -e .env.local -- ts-node --project tsconfig.scripts.json scripts/seed.ts",
+    "prisma": "dotenv -e .env -- prisma",
+    "seed": "dotenv -e .env -- ts-node --project tsconfig.scripts.json scripts/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -88,6 +88,7 @@
     "tailwindcss": "^3.4.4",
     "ts-jest": "^29.1.4",
     "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5",
     "wait-on": "^7.2.0"
   },
