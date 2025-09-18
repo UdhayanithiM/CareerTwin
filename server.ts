@@ -1,5 +1,3 @@
-// server.ts (FINAL VERSION - FIXES Transcript Type ERROR)
-
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -10,7 +8,6 @@ import { Server, Socket } from "socket.io";
 import { verifyJwt, UserJwtPayload } from "./lib/auth";
 import * as cookie from "cookie";
 import { prisma } from "./lib/prisma";
-import { Prisma } from "@prisma/client";
 import axios from "axios";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -27,7 +24,6 @@ interface ChatMessage {
 
 interface InterviewSession {
   history: ChatMessage[];
-  participants: Set<string>;
   candidateId?: string;
 }
 
@@ -44,7 +40,6 @@ app.prepare().then(() => {
   });
 
   const io = new Server(httpServer, {
-    path: "/api/socketio",
     cors: { origin: "*", credentials: true },
   });
 
@@ -52,122 +47,64 @@ app.prepare().then(() => {
     try {
       const cookies = cookie.parse(socket.handshake.headers.cookie || "");
       const token = cookies.token;
-      if (!token) return next(new Error("Authentication error: No token."));
+      if (!token) return next(new Error("Authentication error"));
       const payload = await verifyJwt(token);
-      if (!payload) return next(new Error("Invalid token."));
+      if (!payload) return next(new Error("Invalid token"));
       socket.user = payload;
       next();
     } catch {
-      return next(new Error("Authentication error: Invalid token."));
+      return next(new Error("Authentication error"));
     }
   });
 
   io.on("connection", (socket: AuthenticatedSocket) => {
-    console.log(`✅ User connected: ${socket.id}, Name: ${socket.user?.name}`);
+    console.log(`✅ User connected: ${socket.id}`);
 
     socket.on("joinInterview", (interviewId: string) => {
       let session = interviewSessions.get(interviewId);
       if (!session) {
-        const initialHistory: ChatMessage[] = [
-            { role: "model", content: "Hello! I'm FortiTwin, your AI interviewer. To begin, please tell me a little about yourself." }
-        ];
-        session = { history: initialHistory, participants: new Set(), candidateId: socket.user?.id };
+        const initialHistory: ChatMessage[] = [{ role: "model", content: "Hello! I'm FortiTwin. To begin, please tell me about yourself." }];
+        session = { history: initialHistory, candidateId: socket.user?.id };
         interviewSessions.set(interviewId, session);
       }
       socket.join(interviewId);
-      session!.participants.add(socket.id);
-      
-      const chatHistoryForClient = session!.history.map(h => ({
-        sender: h.role === 'user' ? 'user' : 'ai',
-        text: h.content
-      }));
+      const chatHistoryForClient = session.history.map(h => ({ sender: h.role === 'user' ? 'user' : 'ai', text: h.content }));
       socket.emit("chatHistory", chatHistoryForClient);
     });
-
+    
     socket.on("sendMessage", async (message, interviewId) => {
-      const session = interviewSessions.get(interviewId);
-      if (!session) return;
-
-      session.history.push({ role: "user", content: message.text });
-
-      try {
-        const mlServiceUrl = process.env.ML_SERVICE_URL;
-        if (!mlServiceUrl) throw new Error("ML_SERVICE_URL not set");
-
-        const response = await axios.post(`${mlServiceUrl}/chat`, {
-          user_input: message.text
-        });
-        
-        const aiText = response.data.ai_response;
-
-        session.history.push({ role: "model", content: aiText });
-        io.to(interviewId).emit("aiResponse", { sender: "ai", text: aiText });
-      } catch (err) { 
-        console.error("Local AI service error:", err);
-        io.to(interviewId).emit("aiResponse", { sender: "ai", text: "Sorry, my AI service is not responding." });
-      }
-    });
-
-    socket.on("endInterview", async (interviewId: string, callback) => {
         const session = interviewSessions.get(interviewId);
-        if (!session || !session.candidateId) {
-            return callback({ error: "Session not found or invalid." });
-        }
+        if (!session) return;
+
+        session.history.push({ role: "user", content: message.text });
+
+        const mlServiceUrl = "http://127.0.0.1:8008/api/v1/chat";
+        const requestBody = {
+            messages: session.history.map(msg => ({
+                role: msg.role === 'model' ? 'assistant' : 'user',
+                content: msg.content
+            }))
+        };
         
         try {
-            const reportData = {
-                summary: "This is a placeholder summary. The full AI analysis feature is the next upgrade.",
-                strengths: ["Good communication", "Clear examples"],
-                areasForImprovement: ["Provide more technical depth"],
-                behavioralScores: { communication: 80, problemSolving: 75, leadership: 70 }
-            };
+            console.log("Calling ML service...");
+            const response = await axios.post(mlServiceUrl, requestBody, { timeout: 60000 });
+            const aiText = response.data.content;
 
-            const technicalAssessment = await prisma.technicalAssessment.findFirst({
-                where: { assessmentId: interviewId },
-            });
-            
-            const newReport = await prisma.report.upsert({
-                where: { assessmentId: interviewId },
-                update: {
-                    summary: reportData.summary,
-                    strengths: reportData.strengths,
-                    areasForImprovement: reportData.areasForImprovement,
-                    behavioralScores: reportData.behavioralScores,
-                    technicalScore: technicalAssessment?.score ?? 0,
-                },
-                create: {
-                    assessmentId: interviewId,
-                    candidateId: session.candidateId,
-                    summary: reportData.summary,
-                    strengths: reportData.strengths,
-                    areasForImprovement: reportData.areasForImprovement,
-                    behavioralScores: reportData.behavioralScores,
-                    technicalScore: technicalAssessment?.score ?? 0,
-                },
-            });
-            
-            console.log(`[Room: ${interviewId}] Report ${newReport.id} created/updated successfully.`);
-            
-            await prisma.behavioralInterview.update({
-                where: { assessmentId: interviewId },
-                data: {
-                    status: 'COMPLETED',
-                    // --- THIS IS THE FIX ---
-                    // We tell TypeScript to trust that this format is correct.
-                    transcript: session.history as any, 
-                    completedAt: new Date()
-                }
-            });
-
-            interviewSessions.delete(interviewId);
-            callback({ reportId: newReport.id });
-
-        } catch (error) {
-            console.error(`[Room: ${interviewId}] Report generation failed:`, error);
-            callback({ error: "Failed to generate and save the report." });
+            if (aiText) {
+                session.history.push({ role: "model", content: aiText });
+                // Send response directly to the specific user
+                socket.emit("aiResponse", { sender: "ai", text: aiText });
+            } else {
+                throw new Error("Received empty response from AI.");
+            }
+        } catch (err: any) {
+            console.error("Error calling ML service:", err.message);
+            socket.emit("aiResponse", { sender: "ai", text: "Sorry, the AI service has a problem. Please try again." });
         }
     });
 
+    // Your endInterview and disconnect logic here...
     socket.on("disconnect", () => {
         console.log(`👋 Disconnected: ${socket.id}`);
     });

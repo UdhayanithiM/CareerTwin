@@ -1,3 +1,15 @@
+# FastAPI Server
 fastapi
 uvicorn[standard]
-vllm
+python-dotenv
+
+# Core ML/LLM Libraries
+torch
+transformers
+accelerate
+bitsandbytes
+pydantic
+scikit-learn
+
+# Hugging Face Hub for model downloading
+huggingface-hub>=0.23.0

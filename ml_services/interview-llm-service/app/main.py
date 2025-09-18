@@ -1,34 +1,64 @@
+import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from vllm import LLM, SamplingParams
-import torch
+from huggingface_hub import InferenceClient
+from dotenv import load_dotenv
 
-app = FastAPI()
+# Load .env
+load_dotenv()
 
-try:
-    llm = LLM(model="meta-llama/Meta-Llama-3-8B-Instruct", tensor_parallel_size=torch.cuda.device_count() or 1)
-except Exception as e:
-    print(f"Error loading model: {e}")
-    llm = None
+HF_TOKEN = os.getenv("HF_TOKEN")
+MODEL_ID = os.getenv("MODEL_ID", "udhayanithi18/fortitwin-interviewer-gemma-2b-unsloth")
 
-sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=1024)
+if not HF_TOKEN:
+    raise RuntimeError("❌ HF_TOKEN is missing! Add it to your .env file.")
 
-class ChatInput(BaseModel):
-    prompt: str
+# Hugging Face client
+client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
 
-@app.post("/generate")
-async def generate(chat_input: ChatInput):
-    if not llm:
-        return {"error": "Model is not available."}
+# FastAPI app
+app = FastAPI(title="ML Backend API")
 
-    messages = [
-        {"role": "system", "content": "You are an expert technical interviewer conducting a job interview. Your goal is to assess the candidate's skills and knowledge. Start with a greeting and your first question."},
-        {"role": "user", "content": chat_input.prompt},
-    ]
-    
-    prompt_tokenized = llm.get_tokenizer().apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    
-    outputs = await llm.generate(prompt_tokenized, sampling_params)
-    
-    generated_text = outputs[0].outputs[0].text
-    return {"response": generated_text}
+# Allow CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class ChatRequest(BaseModel):
+    messages: list[dict]
+
+@app.get("/")
+def root():
+    return {"message": "🚀 ML Backend Running!"}
+
+# 🔥 Chat endpoint
+@app.post("/api/v1/chat")
+async def chat(req: ChatRequest):
+    try:
+        # Build conversation-style prompt
+        prompt = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in req.messages])
+        prompt += "\nAssistant:"
+
+        response = client.text_generation(
+            prompt=prompt,
+            max_new_tokens=300,
+        )
+
+        # HuggingFace can return dict or string, handle both
+        if isinstance(response, dict):
+            ai_text = response.get("generated_text", "")
+        else:
+            ai_text = str(response)
+
+        if not ai_text.strip():
+            ai_text = "⚠️ No response generated from model."
+
+        return {"role": "assistant", "content": ai_text}
+
+    except Exception as e:
+        return {"role": "assistant", "content": f"⚠️ Error: {str(e)}"}

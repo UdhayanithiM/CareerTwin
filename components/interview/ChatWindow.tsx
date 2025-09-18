@@ -7,7 +7,6 @@ import { ChatInput } from "./ChatInput";
 import { type Socket } from "socket.io-client";
 import { CircleDashed } from "lucide-react";
 
-// --- TYPE DEFINITIONS ---
 interface Message {
   sender: "user" | "ai";
   text: string;
@@ -23,14 +22,12 @@ export const ChatWindow = ({ socket, interviewId }: ChatWindowProps) => {
     const [isSending, setIsSending] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-    // Effect to automatically scroll to the latest message
     useEffect(() => {
         if (scrollAreaRef.current) {
             scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
         }
     }, [messages]);
 
-    // Effect to handle incoming socket events
     useEffect(() => {
         if (!socket) return;
 
@@ -40,29 +37,23 @@ export const ChatWindow = ({ socket, interviewId }: ChatWindowProps) => {
 
         const handleAiResponse = (message: Message) => {
             setMessages((prev) => [...prev, message]);
-            setIsSending(false); // AI has responded, so we're no longer "sending"
+            setIsSending(false);
         };
 
         socket.on("chatHistory", handleChatHistory);
         socket.on("aiResponse", handleAiResponse);
 
-        // Cleanup function to remove listeners when the component unmounts
         return () => {
             socket.off("chatHistory", handleChatHistory);
             socket.off("aiResponse", handleAiResponse);
         };
     }, [socket]);
 
-    // Function to handle sending a message from the user
     const handleSendMessage = useCallback((text: string) => {
         if (socket && interviewId && text.trim()) {
             const userMessage: Message = { sender: "user", text };
-
-            // Optimistically add the user's message to the UI
             setMessages((prev) => [...prev, userMessage]);
             setIsSending(true);
-
-            // Emit the message to the server
             socket.emit("sendMessage", userMessage, interviewId);
         }
     }, [socket, interviewId]);
