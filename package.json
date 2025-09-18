@@ -11,7 +11,8 @@
     "lint": "next lint",
     "prisma": "dotenv -e .env -- prisma",
     "seed": "dotenv -e .env -- ts-node --project tsconfig.scripts.json scripts/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "build:extension": "tsc -p tsconfig.extension.json"
   },
   "dependencies": {
     "@google/generative-ai": "^0.12.0",
@@ -69,6 +70,7 @@
     "@testing-library/react": "^15.0.7",
     "@testing-library/user-event": "^14.5.2",
     "@types/bcryptjs": "^2.4.6",
+    "@types/chrome": "^0.1.12",
     "@types/cookie": "^0.6.0",
     "@types/jest": "^29.5.12",
     "@types/jsonwebtoken": "^9.0.6",

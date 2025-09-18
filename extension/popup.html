@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FortiTwin AI Assistant</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <h1>FortiTwin AI Assistant</h1>
+    <p>Your on-device AI tools are ready!</p>
+
+    <div id="ai-results">
+      <h2>AI Suggestions</h2>
+      <div id="loading">Loading...</div>
+      <div id="proofread-section">
+        <h3>Proofread Text:</h3>
+        <p id="proofread-output"></p>
+      </div>
+      <div id="rewrite-section">
+        <h3>Rewritten Text:</h3>
+        <p id="rewrite-output"></p>
+      </div>
+      <p id="no-results">Select text on a page and right-click to use FortiTwin AI.</p>
+    </div>
+
+    <script src="dist/popup.js"></script>
+  </body>
+</html>
