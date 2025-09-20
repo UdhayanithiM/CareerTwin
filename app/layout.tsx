@@ -1,43 +1,33 @@
-/**
- * FortiTwin - Root Layout (Server Component)
- * This component handles global metadata, fonts, and the root HTML structure.
- * All client-side logic is delegated to the <Providers> component.
- */
+// File: app/layout.tsx
 
 import type React from "react";
 import "@/app/globals.css";
 import { Inter as FontSans } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import { cn } from "@/lib/utils";
-import { Providers } from "@/components/providers"; // ✅ IMPORT the new component
+import { Providers } from "@/components/providers";
 
-// Font configuration remains the same
 const fontSans = FontSans({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
 
-// Metadata configuration remains a server-side feature
+// [START] UPDATE THIS SECTION
 export const metadata: Metadata = {
   title: {
-    default: "FortiTwin",
-    template: "%s | FortiTwin",
+    default: "CareerTwin",
+    template: "%s | CareerTwin",
   },
-  description: "A modern, AI-powered platform for conducting fair and effective interviews and assessments.",
-  // ... all your other metadata is correct
+  description: "Your personalized AI career co-pilot, guiding you from confusion to job-readiness.",
 };
+// [END] UPDATE THIS SECTION
 
-// Viewport configuration remains a server-side feature
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  // ... all your other viewport config is correct
 };
 
-/**
- * Root layout component that wraps all pages
- */
 export default function RootLayout({
   children,
 }: {
@@ -51,7 +41,6 @@ export default function RootLayout({
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased scroll-smooth", fontSans.variable)}>
-        {/* ✅ WRAP children with the new Providers component */}
         <Providers>
           {children}
         </Providers>

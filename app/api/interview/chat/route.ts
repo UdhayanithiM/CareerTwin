@@ -1,35 +1,51 @@
-// app/api/interview/chat/route.ts
-import { NextResponse } from 'next/server';
+// File: app/api/interview/chat/route.ts
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAIStream, Message, StreamingTextResponse } from 'ai';
 
-export async function POST(request: Request) {
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+
+// IMPORTANT: Set runtime to edge for best streaming performance
+export const runtime = 'edge';
+
+const buildGoogleGenAIPrompt = (messages: Message[]) => ({
+  contents: messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }],
+    })),
+});
+
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    const { messages } = body;
+    const { messages, data } = await req.json();
+    const { interviewContext } = data;
 
-    if (!messages) {
-      return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
-    }
+    const systemPrompt = `You are an expert "AI Interview Coach" for a company called CareerTwin.
+    Your name is Kai. You are conducting a realistic mock interview.
+    Your persona is encouraging, professional, and insightful.
+    The user is a student preparing for a job.
+    Interview Context: You are interviewing the user for a "${interviewContext || "Software Engineer"}" role.
 
-    // --- AI Integration Point ---
-    // This is where you would call your AI service (e.g., Botpress, OpenAI GPT, etc.)
-    // You would pass the `messages` array to the AI to get a contextual response.
-    // For this example, we'll just send back a dynamic, rule-based response.
+    Your instructions are:
+    1.  Ask one question at a time.
+    2.  Wait for the user's response before asking the next question.
+    3.  After 5-6 questions, conclude the interview and provide a detailed, actionable feedback report in markdown format.
+    4.  The feedback report MUST include: a performance summary, 2-3 strengths, 2-3 areas for improvement, and an example of how to improve one of their answers using the STAR method.
 
-    const lastUserMessage = messages[messages.length - 1]?.text.toLowerCase() || '';
-    let aiResponse = "That's a good point. Could you tell me about a time you faced a significant challenge at work?";
+    Start the interview by introducing yourself as Kai, stating the role you're interviewing for, and then ask the first question.`;
 
-    if (lastUserMessage.includes('hello') || lastUserMessage.includes('hi')) {
-      aiResponse = "Hello! Thanks for starting the interview. To begin, please tell me a little about yourself.";
-    } else if (lastUserMessage.includes('challenge')) {
-      aiResponse = "Interesting. What was the outcome of that situation, and what did you learn from it?";
-    } else if (lastUserMessage.includes('thank you') || lastUserMessage.includes('thanks')) {
-        aiResponse = "You're welcome. Let's move to the next question. What are your biggest strengths?";
-    }
+    const geminiStream = await genAI
+      .getGenerativeModel({ model: 'gemini-1.5-pro-latest', systemInstruction: systemPrompt })
+      .generateContentStream(buildGoogleGenAIPrompt(messages));
 
-    return NextResponse.json({ reply: aiResponse });
+    // Convert the response into a friendly text-stream
+    const stream = GoogleGenerativeAIStream(geminiStream);
 
+    // Respond with the stream
+    return new StreamingTextResponse(stream);
   } catch (error) {
-    console.error("Error in chat API:", error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Error in AI Interview Coach API:", error);
+    return new Response("Internal Server Error", { status: 500 });
   }
 }

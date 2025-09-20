@@ -1,15 +1,16 @@
+// File: app/page.tsx
 'use client';
 
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, Video, FileText, BarChart3, Star } from "lucide-react";
+// [START] IMPORT NEW ICONS
+import { ArrowRight, Star, UserCheck, Map, MessageSquare } from "lucide-react";
+// [END] IMPORT NEW ICONS
 import { MainLayout } from "@/components/layout/MainLayout";
-// The correct import is without '/next'
 import Spline from "@splinetool/react-spline";
 
-// --- Reusable Feature Card Component ---
 const FeatureCard = ({
   icon: Icon,
   title,
@@ -60,17 +61,18 @@ export default function LandingPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
             >
+              {/* [START] UPDATE HERO CONTENT */}
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-                The Modern Interview Platform
+                Your Personalized AI Career Co-pilot
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-                Streamline assessments, evaluate candidates effectively, and build
-                better teams with FortiTwin's AI-powered platform.
+                Transform career anxiety into an actionable plan. CareerTwin guides you from self-discovery and skill-building to job-readiness.
               </p>
+              {/* [END] UPDATE HERO CONTENT */}
               <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 pt-4">
                 <Button size="lg" asChild>
-                  <Link href="/signup">
-                    Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
+                  <Link href="/analyze">
+                    Analyze My Career <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
@@ -106,13 +108,14 @@ export default function LandingPage() {
             <div className="inline-block bg-primary/10 p-3 rounded-lg mb-4">
               <Star className="w-8 h-8 text-primary" />
             </div>
+            {/* [START] UPDATE FEATURE HEADLINE */}
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Why Choose FortiTwin?
+              How CareerTwin Empowers You
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-              Powerful features designed for efficient and fair candidate
-              evaluation.
+              Powerful, AI-driven tools to guide you from confusion to clarity and confidence.
             </p>
+            {/* [END] UPDATE FEATURE HEADLINE */}
           </motion.div>
 
           <motion.div
@@ -124,30 +127,24 @@ export default function LandingPage() {
               visible: { transition: { staggerChildren: 0.1 } },
             }}
           >
+            {/* [START] UPDATE FEATURE CARDS */}
             <FeatureCard
-              icon={Video}
-              title="AI-Powered Interviews"
-              description="Conduct structured interviews using our intelligent AI via text or voice."
+              icon={UserCheck}
+              title="AI Skills Analysis"
+              description="Get instant analysis of your resume to discover your strengths and best-fit career paths."
             />
             <FeatureCard
-              icon={FileText}
-              title="Skills Assessments"
-              description="Evaluate technical and soft skills with our comprehensive, customizable assessments."
+              icon={Map}
+              title="Dynamic Career Roadmaps"
+              description="Receive a personalized, step-by-step plan with courses to take and projects to build."
             />
             <FeatureCard
-              icon={BarChart3}
-              title="Data & Analytics"
-              description="Gain deep insights into candidate performance to streamline your hiring decisions."
+              icon={MessageSquare}
+              title="Mock Interview Practice"
+              description="Build confidence with our AI Interview Coach in a distraction-free 'Focus Mode'."
             />
+            {/* [END] UPDATE FEATURE CARDS */}
           </motion.div>
-
-          <div className="text-center mt-12">
-            <Button variant="outline" asChild>
-              <Link href="/features">
-                See All Features <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
         </div>
       </section>
 
@@ -155,18 +152,19 @@ export default function LandingPage() {
       <section className="py-16 md:py-24 bg-muted/40">
         <div className="container">
           <Card className="bg-gradient-to-r from-primary to-purple-600 text-primary-foreground text-center p-8 md:p-12">
+            {/* [START] UPDATE CALL TO ACTION */}
             <h2 className="text-3xl font-bold mb-4">
-              Ready to Improve Your Hiring?
+              Ready to Build Your Future?
             </h2>
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
-              Start your free trial today and discover a better way to assess and
-              interview candidates.
+              Start with a free AI career analysis and take the first step towards the job you'll love.
             </p>
             <Button size="lg" variant="secondary" asChild>
-              <Link href="/signup">
-                Sign Up Now <ArrowRight className="ml-2 h-5 w-5" />
+              <Link href="/analyze">
+                Get Your Free Analysis <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
+            {/* [END] UPDATE CALL TO ACTION */}
           </Card>
         </div>
       </section>

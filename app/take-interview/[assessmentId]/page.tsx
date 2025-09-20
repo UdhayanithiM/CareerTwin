@@ -1,146 +1,98 @@
+// File: app/take-interview/[assessmentId]/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Clock, Gauge, CircleDashed, LoaderCircle } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { io, type Socket } from "socket.io-client";
-import { ChatWindow } from "@/components/interview/ChatWindow";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import React, { useState } from 'react';
+import { useChat } from 'ai/react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { ChatInput, ChatMessage } from '@/components/interview';
+import { LoaderCircle, Mic, Bot } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-// --- HELPER COMPONENTS (No changes needed here) ---
-const InterviewHeader = ({ timer, onEndInterview, isEnding }: { timer: number, onEndInterview: () => void, isEnding: boolean }) => {
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-    };
+// This is the upgraded component. It's cleaner and uses the Vercel AI SDK.
+export default function InterviewCoachPage({ params }: { params: { assessmentId: string } }) {
+  const [interviewStarted, setInterviewStarted] = useState(false);
+
+  // This is the crucial connection. The URL slug (e.g., "Product-Manager") is decoded
+  // and used as the context for the interview. This makes the session dynamic and tailored.
+  const interviewContext = decodeURIComponent(params.assessmentId).replace(/-/g, ' ');
+
+  // The useChat hook from the Vercel AI SDK handles all chat state, API calls, and streaming.
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    // It points to the upgraded Gemini API route.
+    api: '/api/interview/chat',
+    // It sends the dynamic interviewContext in the body of every request.
+    body: { interviewContext },
+    // A simple initial message to kickstart the conversation from the AI.
+    initialMessages: [
+      {
+        id: '1',
+        role: 'assistant',
+        content: `Hello! I'm Kai, your AI Interview Coach from CareerTwin. Today, we'll be running through a practice interview for a **${interviewContext}** role. I'll ask you a series of questions to help you prepare. Let's begin with the first one: Can you tell me about yourself and what sparked your interest in this field?`
+      }
+    ]
+  });
+
+  const startInterview = () => {
+    // This implements the "Focus Mode" by requesting browser fullscreen.
+    document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+    });
+    setInterviewStarted(true);
+  };
+
+  // This is the pre-interview screen.
+  if (!interviewStarted) {
     return (
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
-            <div className="container flex h-16 items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Gauge className="h-6 w-6 text-primary" />
-                    <span className="font-bold text-lg"><span className="text-primary">Forti</span>Twin</span>
+      <MainLayout>
+        <div className="container flex flex-col items-center justify-center min-h-[70vh] text-center">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+            <Card className="max-w-2xl shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl">CareerTwin AI Interview Coach</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">You are about to enter a distraction-free practice session.</p>
+                <p className="font-semibold"><strong>Preparing interview for:</strong> {interviewContext}</p>
+                <Button size="lg" onClick={startInterview}>Enter Focus Mode & Start</Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // This is the main, full-screen interview UI.
+  return (
+    <div className="flex flex-col h-screen bg-muted/40 p-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map(m => (
+          // Your existing ChatMessage component is used here.
+          <ChatMessage key={m.id} role={m.role as 'user' | 'assistant'} content={m.content} />
+        ))}
+        {isLoading && messages[messages.length -1]?.role === 'user' && (
+            <div className="flex items-start gap-4 animate-in fade-in">
+                <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow bg-primary text-primary-foreground">
+                    <Bot className="h-4 w-4" />
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                        <Clock className="h-4 w-4" />
-                        <span>{formatTime(timer)}</span>
-                    </div>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" disabled={isEnding}>
-                                {isEnding && <LoaderCircle className="mr-2 h-4 w-4 animate-spin"/>}
-                                End Interview
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>This action is final and will submit your interview.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={onEndInterview}>Confirm & End</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                <div className="rounded-lg border bg-background p-4 space-x-2">
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
                 </div>
             </div>
-        </header>
-    );
-};
-
-const AnalysisSidebar = () => (
-    <div className="p-4"><p className="text-muted-foreground">Real-time analysis sidebar.</p></div>
-);
-
-// --- MAIN PAGE COMPONENT ---
-export default function TakeInterviewPage() {
-    const router = useRouter();
-    const params = useParams();
-    const { toast } = useToast();
-    const assessmentId = typeof params.assessmentId === 'string' ? params.assessmentId : null;
-
-    const [socket, setSocket] = useState<Socket | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isEnding, setIsEnding] = useState(false);
-    const [timer, setTimer] = useState(0);
-
-    useEffect(() => {
-        if (!assessmentId) return;
-
-        // Initialize the socket connection
-        const newSocket = io({ withCredentials: true });
-
-        newSocket.on("connect", () => {
-            console.log("✅ Socket connected:", newSocket.id);
-            setIsConnected(true);
-            newSocket.emit("joinInterview", assessmentId);
-        });
-
-        newSocket.on("disconnect", () => {
-            console.log("❌ Socket disconnected.");
-            setIsConnected(false);
-        });
-
-        newSocket.on("connect_error", (err) => {
-            console.error("Socket Connection Error:", err.message);
-            toast({ variant: "destructive", title: "Connection Failed", description: "Could not connect to the interview server." });
-        });
-        
-        setSocket(newSocket);
-
-        const timerInterval = setInterval(() => setTimer((prev) => prev + 1), 1000);
-
-        // Cleanup function
-        return () => {
-            console.log("Cleaning up socket connection.");
-            newSocket.disconnect();
-            clearInterval(timerInterval);
-        };
-    }, [assessmentId, toast]);
-
-    const handleEndInterview = useCallback(() => {
-        if (!socket || !assessmentId) return;
-        setIsEnding(true);
-        toast({ title: "Finishing Up...", description: "Submitting your interview. Please wait." });
-        socket.emit("endInterview", assessmentId, (response: { reportId?: string; error?: string }) => {
-            if (response.error) {
-                toast({ title: "Error", description: response.error, variant: "destructive" });
-                setIsEnding(false);
-            } else {
-                toast({ title: "Interview Completed!", description: "Redirecting to your dashboard..." });
-                router.push('/dashboard');
-            }
-        });
-    }, [socket, assessmentId, router, toast]);
-
-    if (!assessmentId) return <p>Invalid assessment ID.</p>;
-
-    return (
-        <div className="min-h-screen bg-background flex flex-col">
-            <InterviewHeader timer={timer} onEndInterview={handleEndInterview} isEnding={isEnding} />
-            <ResizablePanelGroup direction="horizontal" className="flex-1">
-                <ResizablePanel defaultSize={70} minSize={50}>
-                    {isConnected ? (
-                        <ChatWindow socket={socket} interviewId={assessmentId} />
-                    ) : (
-                        <div className="flex h-full items-center justify-center text-center">
-                            <div>
-                                <CircleDashed className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
-                                <p className="mt-4 text-muted-foreground">Connecting...</p>
-                            </div>
-                        </div>
-                    )}
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={30} minSize={20} className="hidden md:block">
-                    <AnalysisSidebar />
-                </ResizablePanel>
-            </ResizablePanelGroup>
-        </div>
-    );
+        )}
+      </div>
+      <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-4 border-t pt-4">
+        {/* Your existing ChatInput component is used here. */}
+        <ChatInput
+          value={input}
+          onChange={handleInputChange}
+          placeholder="Type your answer..."
+          disabled={isLoading}
+        />
+        <Button type="submit" disabled={isLoading || !input.trim()}>Send</Button>
+      </form>
+    </div>
+  );
 }
