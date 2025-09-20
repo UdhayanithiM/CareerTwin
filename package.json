@@ -5,9 +5,9 @@
   "description": "A modern interview and assessment platform built with Next.js, React, and Tailwind CSS.",
   "main": "main.js",
   "scripts": {
-    "dev": "nodemon --watch server.ts --exec ts-node --project tsconfig.server.json server.ts",
+    "dev": "next dev",
     "build": "next build",
-    "start": "NODE_ENV=production ts-node --project tsconfig.server.json server.ts",
+    "start": "next start",
     "lint": "next lint",
     "prisma": "dotenv -e .env -- prisma",
     "seed": "dotenv -e .env -- ts-node --project tsconfig.scripts.json scripts/seed.ts",

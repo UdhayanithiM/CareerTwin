@@ -1,46 +1,68 @@
+// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// It's critical this JWT_SECRET matches the one used to sign the token
 const JWT_SECRET = process.env.JWT_SECRET!;
 const secretKey = new TextEncoder().encode(JWT_SECRET);
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
 
-  // If no token, redirect to login immediately
+  // If the request is for an API route
+  if (pathname.startsWith('/api/')) {
+    // Exclude auth routes from token verification
+    if (pathname.startsWith('/api/auth/')) {
+      return NextResponse.next();
+    }
+
+    if (!token) {
+      return new NextResponse(
+        JSON.stringify({ success: false, message: 'Authentication required' }),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      );
+    }
+
+    try {
+      await jwtVerify(token, secretKey);
+      return NextResponse.next();
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ success: false, message: 'Authentication failed' }),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      );
+    }
+  }
+
+  // For page routes, handle redirects
   if (!token) {
+    // Allow access to public pages without a token
+    const publicPages = ['/login', '/signup', '/'];
+    if (publicPages.includes(pathname)) {
+        return NextResponse.next();
+    }
+    // Redirect all other pages to login
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   try {
-    // Verify the token
-    const { payload } = await jwtVerify(token, secretKey);
-
-    // Get the role from the token's payload
-    const role = (payload.role as string)?.toUpperCase();
-
-    // Check for HR dashboard access
-    if (request.nextUrl.pathname.startsWith('/hr-dashboard') && role !== 'HR') {
-      // If not HR, deny access
-      return NextResponse.redirect(new URL('/login', request.url));
+    await jwtVerify(token, secretKey);
+     // If user is authenticated and tries to access login/signup, redirect to dashboard
+     if (pathname === '/login' || pathname === '/signup') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
-
-    // Check for Admin dashboard access
-    if (request.nextUrl.pathname.startsWith('/admin') && role !== 'ADMIN') {
-      // If not Admin, deny access
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-
-    // If all checks pass, allow the request to continue
     return NextResponse.next();
-  } catch (e) {
-    // If token is invalid or expired, redirect to login
+  } catch (error) {
+    // If token is invalid, redirect to login
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/hr-dashboard/:path*'],
+  // This matcher will run the middleware on all routes except for static files
+  // and Next.js internal routes.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)',
+  ],
 };
