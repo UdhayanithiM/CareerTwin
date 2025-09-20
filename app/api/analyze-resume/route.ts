@@ -1,49 +1,47 @@
-// File: app/api/analyze-resume/route.ts
-
+// app/api/analyze-resume/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
+import pdf from 'pdf-parse';
 
-// Define the exact JSON structure you expect from the AI model using a Zod schema.
-// This ensures the response is type-safe and validated.
-const resumeAnalysisSchema = z.object({
-  skills: z.array(z.string()).length(3).describe("The user's top 3 most marketable skills."),
-  careerPaths: z.array(z.object({
-    title: z.string().describe("A specific, suitable career path title."),
-    justification: z.string().describe("A concise, one-sentence justification for the career path recommendation.")
-  })).length(3).describe("3 recommended career paths.")
+const opportunityAnalysisSchema = z.object({
+    strengths: z.array(z.string()).min(3).max(5).describe("List of 3-5 key skills from the resume that match the job description."),
+    gaps: z.array(z.string()).min(3).max(5).describe("List of 3-5 crucial skills from the job description missing from the resume."),
+    atsScore: z.number().int().min(0).max(100).describe("An ATS match score from 0 to 100."),
+    suggestions: z.array(z.string()).length(2).describe("Exactly 2 actionable suggestions for the user.")
 });
 
 export async function POST(req: NextRequest) {
-  try {
-    const { resumeText } = await req.json();
-    if (!resumeText) {
-      return new NextResponse("Resume text is required", { status: 400 });
+    try {
+        const formData = await req.formData();
+        const resumeFile = formData.get('resumeFile') as File | null;
+        const jobDescriptionText = formData.get('jobDescriptionText') as string | null;
+
+        if (!resumeFile || !jobDescriptionText) {
+            return NextResponse.json({ error: "Resume file and Job Description are required" }, { status: 400 });
+        }
+
+        const fileBuffer = Buffer.from(await resumeFile.arrayBuffer());
+        const pdfData = await pdf(fileBuffer);
+        const resumeText = pdfData.text;
+
+        if (!resumeText) {
+            return NextResponse.json({ error: "Could not extract text from PDF." }, { status: 400 });
+        }
+
+        const prompt = `Perform an "Opportunity Gap Analysis". Compare the resume against the job description. Identify strengths, gaps, calculate an ATS score, and provide two actionable suggestions. Resume Text: "${resumeText}". Job Description Text: "${jobDescriptionText}"`;
+
+        const { object } = await generateObject({
+            model: google('gemini-1.5-pro-latest'),
+            schema: opportunityAnalysisSchema,
+            prompt: prompt,
+        });
+
+        return NextResponse.json(object);
+    } catch (error) {
+        console.error("Error in Analysis API:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
-
-    const prompt = `You are "The Analyst," an expert career advisor for the CareerTwin platform.
-    Analyze the following resume text meticulously.
-    Your task is to identify the user's top 3 most marketable skills and recommend 3 specific, suitable career paths.
-    For each career path, provide a concise, one-sentence justification explaining why it's a good fit based on the resume.
-    
-    Resume Text: "${resumeText}"`;
-
-    // Use the modern 'generateObject' function for structured JSON output.
-    const { object } = await generateObject({
-      model: google('gemini-1.5-pro-latest'),
-      schema: resumeAnalysisSchema,
-      prompt: prompt,
-    });
-
-    return NextResponse.json(object);
-
-  } catch (error) {
-    console.error("Error in Analyst API:", error);
-    // It's good practice to check the error type for more specific responses
-    if (error instanceof Error) {
-      return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
-    }
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
 }

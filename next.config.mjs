@@ -1,6 +1,5 @@
 // next.config.mjs
-
-import 'dotenv/config'; // This line loads your .env file
+import 'dotenv/config';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -33,4 +32,4 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default nextConfig;
