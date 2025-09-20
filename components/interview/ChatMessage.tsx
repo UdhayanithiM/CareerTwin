@@ -1,16 +1,18 @@
-// components/interview/ChatMessage.tsx
-"use strict";
+// File: components/interview/ChatMessage.tsx
+"use client";
 
 import { Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatMessageProps {
-  sender: "user" | "ai";
-  text: string;
+  // FIX: Changed 'sender' to 'role' to match the standard message format.
+  role: "user" | "assistant";
+  // FIX: Changed 'text' to 'content' to match the standard message format.
+  content: string;
 }
 
-export const ChatMessage = ({ sender, text }: ChatMessageProps) => {
-  const isUser = sender === "user";
+export const ChatMessage = ({ role, content }: ChatMessageProps) => {
+  const isUser = role === "user";
 
   return (
     <div
@@ -33,7 +35,7 @@ export const ChatMessage = ({ sender, text }: ChatMessageProps) => {
             : "bg-muted text-foreground"
         )}
       >
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
       </div>
 
       {isUser && (

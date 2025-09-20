@@ -1,4 +1,6 @@
+// components/interview/ChatWindow.tsx
 "use strict";
+
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";

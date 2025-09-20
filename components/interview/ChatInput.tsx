@@ -1,53 +1,43 @@
-// components/interview/ChatInput.tsx
-"use strict";
+// app/components/interview/ChatInput.tsx
+"use client";
 
-import { useState } from "react";
+import { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Send } from "lucide-react";
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
-  isLoading: boolean;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  disabled?: boolean;
+  placeholder?: string;
 }
 
-export const ChatInput = ({ onSend, isLoading }: ChatInputProps) => {
-  const [message, setMessage] = useState("");
-
-  const handleSend = () => {
-    if (message.trim()) {
-      onSend(message);
-      setMessage("");
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+export function ChatInput({ value, onChange, disabled, placeholder = "Type your answer..." }: ChatInputProps) {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // The parent component's form `onSubmit` handles the submission.
+      // So, no need to manually call `onSend`.
     }
   };
 
   return (
-    <div className="p-4 bg-background border-t">
-      <div className="relative">
-        <Textarea
-          placeholder="Type your answer here..."
-          className="pr-16 resize-none"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyPress}
-          disabled={isLoading}
-        />
-        <Button
-          size="icon"
-          className="absolute top-1/2 right-3 -translate-y-1/2"
-          onClick={handleSend}
-          disabled={isLoading || !message.trim()}
-        >
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="flex w-full items-center gap-2">
+      <textarea
+        className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        onKeyDown={handleKeyDown}
+        rows={2}
+        disabled={disabled}
+      />
+      {/* The button is handled by the parent form's submit event */}
+      {/* You can remove this button if you prefer submitting by pressing Enter */}
+      {/* <Button type="submit" disabled={disabled || !value.trim()}>
+        <Send className="h-4 w-4" />
+      </Button> */}
     </div>
   );
-};
+}
+
