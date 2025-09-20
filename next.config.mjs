@@ -21,11 +21,14 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     esmExternals: 'loose',
+    // This line is added to prevent the pdf-parse library from being bundled
+    // incorrectly by the Next.js server, which resolves the build-time error.
+    serverComponentsExternalPackages: ['pdf-parse'],
   },
   transpilePackages: ['framer-motion', 'chart.js', 'three'],
   webpack: (config) => {
     config.resolve.fallback = {
-      ...config.resolve.fallback,
+     ...config.resolve.fallback,
       fs: false,
     };
     return config;

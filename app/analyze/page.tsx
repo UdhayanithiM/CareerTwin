@@ -71,13 +71,13 @@ export default function AnalyzePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-             <div className="space-y-2">
-                <label htmlFor="resume-upload" className="font-semibold flex items-center"><UploadCloud className="mr-2 h-5 w-5 text-primary"/> Step 1: Upload Your Resume (PDF)</label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors" onClick={handleFileSelect}>
-                    <input id="resume-upload" type="file" ref={fileInputRef} onChange={(e) => setResumeFile(e.target.files ? e.target.files[0] : null)} className="hidden" accept=".pdf" />
-                    {resumeFile ? <p className="font-semibold text-green-600">✅ {resumeFile.name}</p> : <p className="text-muted-foreground">Click to select a PDF file</p>}
-                </div>
-            </div>
+              <div className="space-y-2">
+                  <label htmlFor="resume-upload" className="font-semibold flex items-center"><UploadCloud className="mr-2 h-5 w-5 text-primary"/> Step 1: Upload Your Resume (PDF)</label>
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors" onClick={handleFileSelect}>
+                      <input id="resume-upload" type="file" ref={fileInputRef} onChange={(e) => setResumeFile(e.target.files ? e.target.files[0] : null)} className="hidden" accept=".pdf" />
+                      {resumeFile ? <p className="font-semibold text-green-600">✅ {resumeFile.name}</p> : <p className="text-muted-foreground">Click to select a PDF file</p>}
+                  </div>
+              </div>
             <div className="space-y-2">
               <label htmlFor="job-description" className="font-semibold flex items-center"><Target className="mr-2 h-5 w-5 text-primary"/> Step 2: Paste Target Job Description</label>
               <Textarea id="job-description" placeholder="Paste the full job description here..." className="min-h-[200px] text-base shadow-inner" value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
@@ -89,9 +89,49 @@ export default function AnalyzePage() {
               Analyze My Fit
             </Button>
             {error && <p className="text-red-500 mt-4 text-center font-semibold">{error}</p>}
-            {/* ... Analysis results display JSX ... */}
           </CardFooter>
         </Card>
+
+        {/* --- ADD THE NEW RESULTS DISPLAY CARD HERE --- */}
+        {analysis && (
+            <Card className="max-w-4xl mx-auto mt-8 shadow-xl border">
+                <CardHeader>
+                    <CardTitle className="text-3xl font-bold text-center">Analysis Results</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="text-center">
+                        <p className="text-lg font-semibold text-muted-foreground">ATS Match Score</p>
+                        <p className="text-7xl font-bold text-primary">{analysis.atsScore}%</p>
+                        <p className="text-sm text-muted-foreground mt-2">This score estimates how well your resume matches the job description's keywords.</p>
+                    </div>
+                    <hr />
+                    <div className="space-y-2">
+                        <h3 className="font-semibold text-xl flex items-center text-green-600"><Check className="mr-2 h-6 w-6"/> Strengths</h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                        {analysis.strengths.map((strength, index) => (
+                            <li key={`strength-${index}`}>{strength}</li>
+                        ))}
+                        </ul>
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="font-semibold text-xl flex items-center text-orange-600"><AlertTriangle className="mr-2 h-6 w-6"/> Gaps to Address</h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                        {analysis.gaps.map((gap, index) => (
+                            <li key={`gap-${index}`}>{gap}</li>
+                        ))}
+                        </ul>
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="font-semibold text-xl flex items-center text-blue-600"><Wand2 className="mr-2 h-6 w-6"/> Actionable Suggestions</h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                        {analysis.suggestions.map((suggestion, index) => (
+                            <li key={`suggestion-${index}`}>{suggestion}</li>
+                        ))}
+                        </ul>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
       </div>
     </MainLayout>
   );
