@@ -1,5 +1,4 @@
 // File: app/layout.tsx
-
 import type React from "react";
 import "@/app/globals.css";
 import { Inter as FontSans } from "next/font/google";
@@ -13,7 +12,6 @@ const fontSans = FontSans({
   display: "swap",
 });
 
-// [START] UPDATE THIS SECTION
 export const metadata: Metadata = {
   title: {
     default: "CareerTwin",
@@ -21,7 +19,6 @@ export const metadata: Metadata = {
   },
   description: "Your personalized AI career co-pilot, guiding you from confusion to job-readiness.",
 };
-// [END] UPDATE THIS SECTION
 
 export const viewport: Viewport = {
   width: 'device-width',

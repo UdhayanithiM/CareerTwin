@@ -5,9 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// [START] IMPORT NEW ICONS
 import { ArrowRight, Star, UserCheck, Map, MessageSquare } from "lucide-react";
-// [END] IMPORT NEW ICONS
 import { MainLayout } from "@/components/layout/MainLayout";
 import Spline from "@splinetool/react-spline";
 
@@ -61,14 +59,12 @@ export default function LandingPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
             >
-              {/* [START] UPDATE HERO CONTENT */}
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
                 Your Personalized AI Career Co-pilot
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
                 Transform career anxiety into an actionable plan. CareerTwin guides you from self-discovery and skill-building to job-readiness.
               </p>
-              {/* [END] UPDATE HERO CONTENT */}
               <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 pt-4">
                 <Button size="lg" asChild>
                   <Link href="/analyze">
@@ -76,7 +72,7 @@ export default function LandingPage() {
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <Link href="/features">Learn More</Link>
+                  <Link href="#features">Learn More</Link>
                 </Button>
               </div>
             </motion.div>
@@ -108,14 +104,12 @@ export default function LandingPage() {
             <div className="inline-block bg-primary/10 p-3 rounded-lg mb-4">
               <Star className="w-8 h-8 text-primary" />
             </div>
-            {/* [START] UPDATE FEATURE HEADLINE */}
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               How CareerTwin Empowers You
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
               Powerful, AI-driven tools to guide you from confusion to clarity and confidence.
             </p>
-            {/* [END] UPDATE FEATURE HEADLINE */}
           </motion.div>
 
           <motion.div
@@ -127,7 +121,6 @@ export default function LandingPage() {
               visible: { transition: { staggerChildren: 0.1 } },
             }}
           >
-            {/* [START] UPDATE FEATURE CARDS */}
             <FeatureCard
               icon={UserCheck}
               title="AI Skills Analysis"
@@ -143,7 +136,6 @@ export default function LandingPage() {
               title="Mock Interview Practice"
               description="Build confidence with our AI Interview Coach in a distraction-free 'Focus Mode'."
             />
-            {/* [END] UPDATE FEATURE CARDS */}
           </motion.div>
         </div>
       </section>
@@ -152,7 +144,6 @@ export default function LandingPage() {
       <section className="py-16 md:py-24 bg-muted/40">
         <div className="container">
           <Card className="bg-gradient-to-r from-primary to-purple-600 text-primary-foreground text-center p-8 md:p-12">
-            {/* [START] UPDATE CALL TO ACTION */}
             <h2 className="text-3xl font-bold mb-4">
               Ready to Build Your Future?
             </h2>
@@ -164,7 +155,6 @@ export default function LandingPage() {
                 Get Your Free Analysis <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            {/* [END] UPDATE CALL TO ACTION */}
           </Card>
         </div>
       </section>

@@ -1,26 +1,20 @@
 /**
- * CareerTwin Student Dashboard
+ * CareerTwin Student Dashboard - Redesigned
  *
- * This is the central hub for the student's journey. It has been refactored
- * to remove the old assessment-list model and now serves as a launchpad for
- * the core CareerTwin features: Resume Analysis, Roadmap Generation, and
- * Mock Interviews.
+ * This dashboard is the central hub for the student's journey, redesigned
+ * to be a guided, linear progression rather than a simple feature launchpad.
+ * It presents the user's path as a series of steps, with only the
+ * current step being active, creating a unique and professional UX.
  */
 "use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, FileText, Map, MessageSquare } from "lucide-react";
+import { ArrowRight, FileText, Map, MessageSquare, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/authStore";
+import { cn } from "@/lib/utils";
 
 // Animation variants for a staggered fade-in effect
 const containerVariants = {
@@ -32,135 +26,113 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  hidden: { opacity: 0, x: -20 },
+  visible: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 100 } },
 };
+
+// Define the steps in the user's journey
+const journeySteps = [
+  {
+    title: "AI Skills Analysis",
+    description: "Start by letting our AI analyze your resume to discover your core strengths and best-fit career paths.",
+    icon: FileText,
+    href: "/analyze",
+    status: "active",
+  },
+  {
+    title: "Dynamic Career Roadmap",
+    description: "Once your skills are analyzed, the AI Strategist will build a personalized, step-by-step plan for you.",
+    icon: Map,
+    href: "#", // No link for disabled steps
+    status: "locked",
+  },
+  {
+    title: "AI Interview Coach",
+    description: "With your roadmap in hand, practice mock interviews in our 'Focus Mode' to build confidence and skill.",
+    icon: MessageSquare,
+    href: "#",
+    status: "locked",
+  },
+];
 
 export default function StudentDashboard() {
   const { user } = useAuthStore();
-  // Provides a friendly greeting, defaulting to "Student" if the name isn't available.
   const userName = user?.name?.split(" ")[0] || "Student";
 
   return (
-    // The main container uses Framer Motion for a smooth entry animation.
     <motion.div
-      className="container py-8 space-y-6"
+      className="container py-8"
       initial="hidden"
       animate="visible"
       variants={containerVariants}
     >
       {/* --- Welcome Header --- */}
-      <motion.div variants={itemVariants} className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">
+      <motion.div variants={itemVariants} className="space-y-1 mb-12">
+        <h1 className="text-4xl font-bold tracking-tight">
           Welcome back, {userName}!
         </h1>
-        <p className="text-muted-foreground text-lg">
-          Ready to build your future? Let's get started.
+        <p className="text-muted-foreground text-xl">
+          Your personalized career journey starts here.
         </p>
       </motion.div>
 
-      {/* --- Core Feature Cards --- */}
-      {/* The grid layout is responsive, stacking on mobile and going side-by-side on larger screens. */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Card 1: Analyze Resume */}
-        <motion.div variants={itemVariants}>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <FileText className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">AI Skills Analysis</CardTitle>
-                  <CardDescription>Step 1: Discover Yourself</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <p className="text-muted-foreground">
-                Upload your resume or connect your LinkedIn to let our AI
-                analyze your unique strengths and identify your best-fit career
-                paths.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link href="/analyze">
-                  {/* [FIXED] Wrapped content in a span */}
-                  <span>
-                    Analyze Your Resume <ArrowRight className="ml-2 h-4 w-4" />
-                  </span>
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        </motion.div>
+      {/* --- Career Journey Steps --- */}
+      <motion.div variants={containerVariants} className="space-y-4">
+        {journeySteps.map((step, index) => {
+          const isActive = step.status === "active";
+          return (
+            <motion.div key={index} variants={itemVariants}>
+              <Card
+                className={cn(
+                  "transition-all",
+                  isActive
+                    ? "border-primary shadow-lg hover:shadow-xl"
+                    : "bg-muted/50 border-dashed"
+                )}
+              >
+                <div className="flex items-center p-6">
+                  {/* Step Number and Icon */}
+                  <div className="flex items-center mr-6">
+                    <div
+                      className={cn(
+                        "flex items-center justify-center h-12 w-12 rounded-full border-2",
+                        isActive
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-muted-foreground/30 text-muted-foreground/50"
+                      )}
+                    >
+                      <step.icon className="h-6 w-6" />
+                    </div>
+                  </div>
 
-        {/* Card 2: Generate Roadmap */}
-        <motion.div variants={itemVariants}>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <Map className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Dynamic Career Roadmap</CardTitle>
-                  <CardDescription>Step 2: Chart Your Course</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <p className="text-muted-foreground">
-                Once you have a goal, our AI Strategist will build a
-                personalized, step-by-step plan with courses to take and
-                projects to build.
-              </p>
-            </CardContent>
-            <CardFooter>
-              {/* [FIXED] Changed to a standard disabled button */}
-              <Button className="w-full" disabled>
-                Generate Your Roadmap <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
-        </motion.div>
+                  {/* Step Details */}
+                  <div className="flex-grow">
+                    <h2 className="text-xl font-semibold">
+                      Step {index + 1}: {step.title}
+                    </h2>
+                    <p className="text-muted-foreground">{step.description}</p>
+                  </div>
 
-        {/* Card 3: Mock Interview */}
-        <motion.div variants={itemVariants}>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <MessageSquare className="h-6 w-6 text-primary" />
+                  {/* Action Button */}
+                  <div className="ml-6">
+                    {isActive ? (
+                      <Button asChild>
+                        <Link href={step.href}>
+                          Start Now <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" disabled>
+                        <Lock className="mr-2 h-4 w-4" /> Locked
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-xl">AI Interview Coach</CardTitle>
-                  <CardDescription>Step 3: Build Confidence</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <p className="text-muted-foreground">
-                Practice realistic mock interviews in our distraction-free
-                'Focus Mode' and get instant, actionable feedback to improve
-                your skills.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link href="/take-interview">
-                  {/* [FIXED] Wrapped content in a span */}
-                  <span>
-                    Start a Mock Interview{" "}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </span>
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        </motion.div>
-      </div>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </motion.div>
     </motion.div>
   );
 }

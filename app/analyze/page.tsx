@@ -1,6 +1,7 @@
 // app/analyze/page.tsx
 'use client';
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation'; // Import the router
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,10 +19,12 @@ interface OpportunityAnalysisResult {
 export default function AnalyzePage() {
   const [jobDescription, setJobDescription] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  // This state is kept to display results in case the redirect fails or for debugging
   const [analysis, setAnalysis] = useState<OpportunityAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter(); // Initialize the router
 
   const handleAnalyze = async () => {
     if (!resumeFile || !jobDescription.trim()) {
@@ -47,7 +50,21 @@ export default function AnalyzePage() {
         throw new Error(data.error || `Request failed with status ${response.status}`);
       }
 
-      setAnalysis(data);
+      setAnalysis(data); // You can still set the analysis data
+
+      // --- SEAMLESS REDIRECTION ---
+      // 1. Extract the necessary data for the next step.
+      const { strengths, gaps } = data;
+
+      // 2. Create a query string with the strengths and gaps.
+      const query = new URLSearchParams({
+          strengths: strengths.join(','),
+          gaps: gaps.join(','),
+      }).toString();
+
+      // 3. Automatically redirect the user to the career paths page.
+      router.push(`/career-paths?${query}`);
+      // --- END OF REDIRECTION LOGIC ---
 
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred. Please check the console.');
@@ -92,7 +109,7 @@ export default function AnalyzePage() {
           </CardFooter>
         </Card>
 
-        {/* --- ADD THE NEW RESULTS DISPLAY CARD HERE --- */}
+        {/* This section will now only be visible if the redirect fails */}
         {analysis && (
             <Card className="max-w-4xl mx-auto mt-8 shadow-xl border">
                 <CardHeader>

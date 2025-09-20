@@ -1,38 +1,36 @@
 // stores/authStore.ts
 import { create } from 'zustand';
 
+// ✨ FIX: Added the optional 'avatar' property to the User interface.
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  avatar?: string | null; // This allows the user object to have an avatar property.
 }
 
 interface AuthState {
   user: User | null;
-  // ✅ CHANGED: isLoading now tracks the initial authentication check
-  isLoading: boolean; 
+  isLoading: boolean;
   error: string | null;
   login: (loginData: any) => Promise<boolean>;
   register: (registerData: any) => Promise<boolean>;
-  logout: () => Promise<void>; // ✅ CHANGED: Logout should be async
+  logout: () => Promise<void>;
   clearError: () => void;
-  // ✅ ADDED: A new action to check auth status on app load
-  checkAuthStatus: () => Promise<void>; 
+  checkAuthStatus: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  // ✅ CHANGED: Start in a loading state to wait for the initial check
-  isLoading: true, 
+  isLoading: true,
   error: null,
 
   clearError: () => set({ error: null }),
 
-  // ✅ ADDED: The new action to verify the user's cookie
   checkAuthStatus: async () => {
     try {
-      const response = await fetch('/api/auth/me'); // New endpoint
+      const response = await fetch('/api/auth/me');
       if (!response.ok) {
         throw new Error('Not authenticated');
       }
@@ -44,8 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (loginData) => {
-    // This action now only needs to set loading for the login action itself
-    set({ isLoading: true, error: null }); 
+    set({ isLoading: true, error: null });
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -65,15 +62,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     }
   },
-  
-  // ✅ CHANGED: Logout needs to call an API to clear the server cookie
+
   logout: async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    set({ user: null, isLoading: false });
+    set({ user: null }); // No need to set isLoading here
   },
 
   register: async (registerData) => {
-    // This function is well-written and does not need changes.
     set({ isLoading: true, error: null });
     try {
       const response = await fetch('/api/auth/register', {
