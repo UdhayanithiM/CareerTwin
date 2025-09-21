@@ -1,120 +1,114 @@
 
-# FortiTwin
 
-*A modern interview and assessment platform built with Next.js, React, and Tailwind CSS.*
+## 
 
----
+# CareerTwin
+
+*Your Personalized AI Career Co-pilot, built with Next.js and Google Cloud.*
+
+-----
 
 ## 🚀 Overview
 
-FortiTwin is a comprehensive platform that streamlines the interview and assessment process for both candidates and HR professionals. It features:
+CareerTwin is an intelligent, AI-powered platform that serves as a personal career co-pilot for students. It addresses the overwhelming number of career choices and the lack of personalized guidance by transforming career anxiety into a clear, actionable plan. The platform guides users through a complete journey of self-discovery, skill development, and job-readiness.
 
-- Interactive candidate dashboard  
-- HR analytics dashboard  
-- Text and video interview capabilities  
-- Skills assessment modules  
-- Modern UI with light/dark mode support  
+  - **AI-Powered Self-Discovery:** Ingests a resume or LinkedIn profile to analyze skills and suggest tailored career paths.
+  - **Personalized Roadmaps:** Generates dynamic, step-by-step plans with courses and projects to build skills for a target career.
+  - **Interview Coaching:** Conducts mock interviews in a distraction-free 'Focus Mode' and provides instant, actionable feedback.
+  - **Modern, Student-Focused UI:** A seamless user journey from career discovery to interview confidence.
 
----
+-----
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Next.js 14 (App Router)  
-- **UI Components**: Shadcn/UI + Radix UI  
-- **Styling**: Tailwind CSS  
-- **Language**: TypeScript  
-- **Animations**: Framer Motion  
-- **3D Models**: Three.js (for HR dashboard)  
-- **Charts**: Recharts  
+  - **Framework**: Next.js 14 (App Router)
+  - **AI & Cloud**: Google Cloud Stack (Vertex AI Gemini, Cloud Run, Firestore)
+  - **UI Components**: Shadcn/UI + Radix UI
+  - **Styling**: Tailwind CSS
+  - **Language**: TypeScript
+  - **Animations**: Framer Motion
 
----
+-----
 
 ## 🧱 Project Structure
 
+The project has been refactored to focus exclusively on the student journey.
+
 ```
-fortitwin/
+careertwin/
 ├── app/                  # Next.js App Router pages
-│   ├── dashboard/        # Candidate dashboard
-│   ├── hr-dashboard/     # HR professional dashboard
-│   ├── about/            # About page
-│   ├── features/         # Features page
-│   ├── how-it-works/     # How it works page
-│   ├── interview/        # Interview flow
+│   ├── dashboard/        # Main Student Dashboard
+│   ├── analyze/          # Resume & JD Analysis page
+│   ├── roadmap/          # Career Roadmap generation page
+│   ├── take-interview/   # Mock Interview 'Focus Mode'
 │   ├── login/            # Login page
-│   ├── pricing/          # Pricing page
-│   ├── report/           # Assessment reports
 │   ├── signup/           # Signup page
 │   ├── globals.css       # Global styles
 │   ├── layout.tsx        # Root layout component
-│   └── page.tsx          # Home page
+│   └── page.tsx          # Home/Landing page
 ├── components/           # Reusable components
 │   ├── layout/           # Layout components
 │   │   └── MainLayout.tsx
 │   ├── ui/               # UI components
 │   └── ...               # Other shared components
-├── hooks/                # Custom React hooks
-├── lib/                  # Utility functions
-├── public/               # Static assets
-└── styles/               # Additional styles
+├── lib/                  # Utility functions (e.g., auth)
+└── public/               # Static assets
 ```
 
----
+-----
 
 ## ⚙️ Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- npm, yarn, or pnpm
+  - Node.js 18+
+  - npm, yarn, or pnpm
+  - Google Cloud SDK (`gcloud`)
 
 ### Installation
 
-1. **Clone the repository**  
-   ```bash
-https://github.com/ranjithganesh7/Fortitwin-SVCE
-   cd Fortitwin-SVCE
-   ```
+1.  **Clone the repository**
 
-2. **Install dependencies**  
-   ```bash
-   npm install       # or
-   yarn install      # or
-   pnpm install
-   ```
+    ```bash
+    git clone https://github.com/UdhayanithiM/fortitwin.git
+    cd fortitwin
+    ```
 
-3. **Run the development server**  
-   ```bash
-   npm run dev       # or
-   yarn dev          # or
-   pnpm dev
-   ```
+2.  **Install dependencies**
 
-4. **Open your browser**  
-   [Visit FortiTwin](https://fortitwin-svcehck-git-main-ranjithganeshb-gmailcoms-projects.vercel.app/)
+    ```bash
+    npm install       # or
+    yarn install      # or
+    pnpm install
+    ```
 
----
+3.  **Setup Environment Variables**
+
+      - Create a `.env.local` file in the root directory.
+      - Add your Google Cloud Project ID, Service Account credentials, and Database URLs.
+
+4.  **Run the development server**
+
+    ```bash
+    npm run dev       # or
+    yarn dev          # or
+    pnpm dev
+    ```
+
+5.  **Open your browser**
+    [Visit http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
+
+-----
 
 ## 🎯 Key Features
 
-### For Candidates
+  - **AI Skills Analysis:** Upload a resume and job description to get a detailed analysis of your strengths, skill gaps, and an ATS score.
+  - **Dynamic Career Roadmap:** Select a career path and receive a personalized, step-by-step plan with recommended courses and portfolio projects.
+  - **AI Interview Coach:** Practice mock interviews tailored to your target role in a distraction-free 'Focus Mode'.
+  - **Actionable Feedback:** Receive instant, constructive feedback after each interview to improve your answers and build confidence.
+  - **Personalized Dashboard:** Track your progress, review your roadmaps, and access your interview history from a central hub.
 
-- Profile management  
-- Interview scheduling  
-- Text and video interviews  
-- Skills assessments  
-- Progress tracking  
-- Personalized settings  
-
-### For HR Professionals
-
-- Candidate overview dashboard  
-- Analytics and reporting  
-- Interview management  
-- Assessment tracking  
-- Data export capabilities  
-
----
+-----
 
 ## 📬 Contact
-
-
+udhayanithi@gmail.com
