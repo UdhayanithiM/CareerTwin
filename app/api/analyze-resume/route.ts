@@ -3,16 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import pdf from "pdf-parse";
-import { auth as adminAuth, credential } from "firebase-admin";
-import { initializeApp, getApps } from "firebase-admin/app";
+// Import our centralized admin auth and db
+import { adminAuth, adminDb } from "@/lib/firebase-admin"; 
 import { saveAnalysisResult } from "@/lib/firestore";
 
-// This initialization is correct and ideal for serverless environments.
-if (!getApps().length) {
-  initializeApp({
-    credential: credential.applicationDefault(),
-  });
-}
+// The old initialization has been removed from this file.
 
 const opportunityAnalysisSchema = z.object({
     strengths: z.array(z.string()).min(3).max(5),
@@ -28,7 +23,8 @@ export async function POST(req: NextRequest) {
         if (!authToken) {
             return NextResponse.json({ error: "Unauthorized: Auth token missing." }, { status: 401 });
         }
-        const decodedToken = await adminAuth().verifyIdToken(authToken);
+        // Use the imported adminAuth instance
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
         const uid = decodedToken.uid;
 
         // --- 2. Process and Validate Incoming Data ---
@@ -58,7 +54,6 @@ export async function POST(req: NextRequest) {
             generationConfig: { responseMimeType: "application/json" },
         });
         
-        // ✨ IMPROVEMENT: The prompt now explicitly states atsScore is a number, not a string, to match the Zod schema.
         const prompt = `
             Analyze the following resume against the job description. Your response MUST be a valid JSON object that strictly adheres to the following structure:
             {
@@ -97,7 +92,6 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error("Analysis API Error:", error.message);
         
-        // ✨ IMPROVEMENT: This now catches *any* Firebase auth error (expired, invalid, malformed) and returns a 401.
         if (error.code?.startsWith('auth/')) {
             return NextResponse.json({ error: "Authentication session has expired. Please log in again." }, { status: 401 });
         }
