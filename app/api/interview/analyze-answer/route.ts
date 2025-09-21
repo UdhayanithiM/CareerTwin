@@ -1,67 +1,48 @@
 // app/api/interview/analyze-answer/route.ts
 import { NextRequest, NextResponse } from "next/server";
-// ✨ We now use Gemini for nuanced analysis
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { z } from "zod";
+import { LanguageServiceClient } from "@google-cloud/language";
 
-// ✨ A much richer schema for detailed behavioral feedback
-const behavioralAnalysisSchema = z.object({
-  sentimentScore: z.number().min(-1).max(1),
-  confidenceScore: z.number().min(0).max(100),
-  clarityScore: z.number().min(0).max(100),
-  keywords: z.array(z.string()).max(5),
-  feedbackTip: z.string(),
-});
+// Make sure your Google Cloud credentials are set up in your environment
+// (e.g., GOOGLE_APPLICATION_CREDENTIALS)
+const languageClient = new LanguageServiceClient();
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, interviewContext } = await req.json();
-    if (!text || !interviewContext) {
-      return NextResponse.json({ error: "Answer text and context are required." }, { status: 400 });
+    const { text } = await req.json();
+    if (!text) {
+      return NextResponse.json({ error: "Answer text is required." }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY is not defined");
+    const document = {
+      content: text,
+      type: "PLAIN_TEXT" as const,
+    };
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro-latest", // Using the best model for analysis
-      generationConfig: { responseMimeType: "application/json" },
-    });
+    // Run sentiment and entity analysis in parallel
+    const [sentimentResult, entitiesResult] = await Promise.all([
+      languageClient.analyzeSentiment({ document }),
+      languageClient.analyzeEntities({ document }),
+    ]);
 
-    const prompt = `
-      You are an expert interview coach analyzing a single answer from a candidate.
-      The interview is for a "${interviewContext}" role.
-      Analyze the following candidate's answer for sentiment, confidence, clarity, and key skills mentioned.
+    const sentiment = sentimentResult[0].documentSentiment;
+    const entities = entitiesResult[0].entities;
 
-      Provide a short, one-sentence feedback tip (e.g., "Good use of the STAR method," or "Try to be more concise.").
+    // Extract relevant skills/keywords from entities
+    const keywords = entities
+      ?.filter(e => e.type === 'ORGANIZATION' || e.type === 'OTHER' || e.type === 'WORK_OF_ART')
+      ?.map(e => e.name)
+      .slice(0, 5) // Limit to top 5 keywords
+      ?? [];
 
-      Your response MUST be a JSON object that strictly adheres to this structure:
-      {
-        "sentimentScore": "A float between -1.0 (very negative) and 1.0 (very positive).",
-        "confidenceScore": "An integer between 0 and 100 representing how confident the answer sounds.",
-        "clarityScore": "An integer between 0 and 100 representing how clear and easy to understand the answer is.",
-        "keywords": ["An array of up to 5 most important technical or soft skills mentioned."],
-        "feedbackTip": "A single, concise string of actionable advice for the candidate."
-      }
+    const analysis = {
+      sentiment: {
+        score: sentiment?.score?.toFixed(2) ?? 0, // e.g., 0.8, -0.2
+        magnitude: sentiment?.magnitude?.toFixed(2) ?? 0,
+      },
+      keywords,
+    };
 
-      Candidate's Answer:
-      ---
-      ${text}
-      ---
-    `;
-    
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    const parsedObject = JSON.parse(responseText);
-    const validation = behavioralAnalysisSchema.safeParse(parsedObject);
-
-    if (!validation.success) {
-      console.error("Zod validation failed for analysis. AI Response:", parsedObject, validation.error.flatten());
-      throw new Error("AI model returned an invalid analysis shape.");
-    }
-
-    return NextResponse.json(validation.data);
+    return NextResponse.json(analysis);
 
   } catch (error) {
     console.error("Analysis API Error:", error);

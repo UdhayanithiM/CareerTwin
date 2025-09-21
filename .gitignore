@@ -1,46 +1,38 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# See https://help.github.com/articles/ignoring-files/
 
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
+*.tsbuildinfo
 
-# testing
-/coverage
+# Next.js build artifacts
+/.next/
+/out/
 
-# next.js
-/.next
-/out
-firebase.ts
-# production
+# Production & Sensitive Files
 /build
+*.pem
 service-account-key.json
 firebase-service-account-key.json
-# misc
+
+extension/config.ts
+
+# Testing
+/coverage
+
+# IDE & OS specific
 .DS_Store
-*.pem
 .vscode/
 .idea/
+.vercel
 
-# debug
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local environment files
+# Local environment files
 .env
-.env*.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-/generated/prisma
-node_modules
-extension/config.ts
+.env*
+!.env.example

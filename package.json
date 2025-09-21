@@ -4,14 +4,13 @@
   "private": true,
   "description": "A modern interview and assessment platform built with Next.js, React, and Tailwind CSS.",
   "main": "main.js",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "prisma": "dotenv -e .env -- prisma",
     "seed": "dotenv -e .env -- ts-node --project tsconfig.scripts.json scripts/seed.ts",
-    "postinstall": "prisma generate",
     "build:extension": "webpack --config webpack.config.ts"
   },
   "dependencies": {
@@ -48,6 +47,7 @@
     "critters": "^0.0.23",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.2",
+    "express": "^5.1.0",
     "firebase": "^12.3.0",
     "firebase-admin": "^13.5.0",
     "framer-motion": "^11.2.10",

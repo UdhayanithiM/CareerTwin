@@ -11,6 +11,18 @@ import {
 import { auth } from '@/lib/firebase';
 import { createUserProfile } from '@/lib/firestore';
 
+// Define types for login and registration data to avoid 'any' type errors
+interface LoginData {
+  email: string;
+  password: string;
+}
+
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+}
+
 interface User {
   uid: string;
   email: string | null;
@@ -23,8 +35,8 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   initializeAuthListener: () => () => void;
-  login: (loginData: any) => Promise<boolean>;
-  register: (registerData: any) => Promise<boolean>;
+  login: (loginData: LoginData) => Promise<boolean>;
+  register: (registerData: RegisterData) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -56,7 +68,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (loginData) => {
-    // ✨ Set loading state for better UX
     set({ isLoading: true, error: null });
     try {
       await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
@@ -69,23 +80,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (registerData) => {
-    // ✨ Set loading state for better UX
     set({ isLoading: true, error: null });
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, registerData.email, registerData.password);
       const user = userCredential.user;
       
-      // Update the Firebase Auth user's display name
       await updateProfile(user, { displayName: registerData.name });
 
-      // Create the user's document in Firestore
       await createUserProfile(user.uid, {
         uid: user.uid,
         email: user.email,
         name: registerData.name,
       });
 
-      // ✨ Manually update the store for immediate UI response
       set({
         user: {
           uid: user.uid,
@@ -96,7 +103,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false
       });
       return true;
-    } catch (err: any)      const errorMessage =
+    // ✨ SYNTAX FIX: Added the missing opening brace for the catch block
+    } catch (err: any) { 
+      const errorMessage =
         err.code === "auth/email-already-in-use"
           ? "This email is already registered."
           : "An error occurred during registration.";
@@ -108,7 +117,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     try {
       await signOut(auth);
-      // The onAuthStateChanged listener will handle setting user to null
     } catch (err: any) {
         set({ error: err.message });
     }
