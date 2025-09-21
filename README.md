@@ -1,6 +1,4 @@
-Of course. Here is the professionally updated `README.md` file that reflects your project's pivot from "FortiTwin" to "CareerTwin", formatted with `##` headings.
 
------
 
 ## 
 
@@ -113,4 +111,4 @@ careertwin/
 -----
 
 ## 📬 Contact
-[udhayanithi@gmail.com]
+udhayanithi@gmail.com
