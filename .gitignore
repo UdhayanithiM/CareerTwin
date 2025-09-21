@@ -11,7 +11,7 @@
 # next.js
 /.next
 /out
-
+firebase.ts
 # production
 /build
 service-account-key.json

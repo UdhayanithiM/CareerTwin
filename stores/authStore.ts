@@ -56,31 +56,51 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (loginData) => {
-    set({ error: null });
+    // ✨ Set loading state for better UX
+    set({ isLoading: true, error: null });
     try {
       await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
+      set({ isLoading: false });
       return true;
     } catch (err: any) {
-      // Use a more user-friendly error message
-      set({ error: "Invalid email or password." });
+      set({ error: "Invalid email or password.", isLoading: false });
       return false;
     }
   },
 
   register: async (registerData) => {
-    set({ error: null });
+    // ✨ Set loading state for better UX
+    set({ isLoading: true, error: null });
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, registerData.email, registerData.password);
       const user = userCredential.user;
+      
+      // Update the Firebase Auth user's display name
       await updateProfile(user, { displayName: registerData.name });
+
+      // Create the user's document in Firestore
       await createUserProfile(user.uid, {
         uid: user.uid,
         email: user.email,
         name: registerData.name,
       });
+
+      // ✨ Manually update the store for immediate UI response
+      set({
+        user: {
+          uid: user.uid,
+          email: user.email,
+          name: registerData.name,
+          avatar: null
+        },
+        isLoading: false
+      });
       return true;
-    } catch (err: any) {
-      set({ error: err.message });
+    } catch (err: any)      const errorMessage =
+        err.code === "auth/email-already-in-use"
+          ? "This email is already registered."
+          : "An error occurred during registration.";
+      set({ error: errorMessage, isLoading: false });
       return false;
     }
   },
@@ -88,7 +108,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     try {
       await signOut(auth);
-      set({ user: null });
+      // The onAuthStateChanged listener will handle setting user to null
     } catch (err: any) {
         set({ error: err.message });
     }
