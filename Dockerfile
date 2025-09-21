@@ -1,7 +1,7 @@
-# Final Dockerfile using the official Next.js multi-stage pattern
+# Final Corrected Dockerfile for Custom Server
 
 # 1. Dependency Stage
-# Install dependencies to a base image
+# Install all dependencies to a base image
 FROM node:20-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -11,7 +11,6 @@ RUN npm ci
 # Build the application
 FROM node:20-slim AS builder
 WORKDIR /app
-# Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
@@ -22,13 +21,21 @@ FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy the built application from the 'builder' stage
+# Copy package files needed to install production dependencies
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json* ./package-lock.json
+
+# --- THE FIX IS HERE ---
+# Install ONLY the production dependencies (like express)
+RUN npm ci --omit=dev
+
+# Copy the built application and the custom server
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/server.js ./server.js
 
-# Expose the port and start the custom server
 EXPOSE 3000
 ENV PORT 3000
+
+# Use the start script from package.json to run the server
 CMD ["npm", "start"]
