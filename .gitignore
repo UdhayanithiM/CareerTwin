@@ -15,6 +15,7 @@
 # production
 /build
 service-account-key.json
+firebase-service-account-key.json
 # misc
 .DS_Store
 *.pem

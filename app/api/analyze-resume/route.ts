@@ -3,8 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import pdf from "pdf-parse";
+import { auth as adminAuth, credential } from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { saveAnalysisResult } from "@/lib/firestore";
 
-// Define a Zod schema for validating the AI model's output.
+// This initialization is correct and ideal for serverless environments.
+if (!getApps().length) {
+  initializeApp({
+    credential: credential.applicationDefault(),
+  });
+}
+
 const opportunityAnalysisSchema = z.object({
     strengths: z.array(z.string()).min(3).max(5),
     gaps: z.array(z.string()).min(3).max(5),
@@ -13,94 +22,90 @@ const opportunityAnalysisSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-    console.log("\n---");
-    console.log("🚀 POST /api/analyze-resume route handler invoked.");
-
     try {
-        // 1. Initialize AI Model
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("GEMINI_API_KEY is not defined");
+        // --- 1. Authenticate User ---
+        const authToken = req.headers.get('Authorization')?.split('Bearer ')[1];
+        if (!authToken) {
+            return NextResponse.json({ error: "Unauthorized: Auth token missing." }, { status: 401 });
         }
-        console.log("✅ GEMINI_API_KEY found.");
-        
-        const genAI = new GoogleGenerativeAI(apiKey);
-        
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-pro-latest",
-            generationConfig: {
-                responseMimeType: "application/json",
-            },
-        });
-        console.log("✅ Google AI Model initialized in JSON Mode.");
+        const decodedToken = await adminAuth().verifyIdToken(authToken);
+        const uid = decodedToken.uid;
 
-        // 2. Process Incoming Form Data
+        // --- 2. Process and Validate Incoming Data ---
         const formData = await req.formData();
-        console.log("✅ Form data received.");
-
         const resumeFile = formData.get('resumeFile') as File | null;
         const jobDescriptionText = formData.get('jobDescriptionText') as string | null;
 
         if (!resumeFile || !jobDescriptionText) {
-            return NextResponse.json({ error: "Resume file and Job Description are required" }, { status: 400 });
+            return NextResponse.json({ error: "Bad Request: Resume file and Job Description are required." }, { status: 400 });
         }
-        console.log(`✅ Resume file: ${resumeFile.name}, Job Description length: ${jobDescriptionText.length}`);
 
-        // 3. Parse the PDF file
         const fileBuffer = Buffer.from(await resumeFile.arrayBuffer());
         const pdfData = await pdf(fileBuffer);
         const resumeText = pdfData.text;
         
         if (!resumeText) {
-            return NextResponse.json({ error: "Could not extract text from PDF." }, { status: 400 });
+            return NextResponse.json({ error: "Bad Request: Could not extract text from the provided PDF." }, { status: 400 });
         }
-        console.log(`✅ PDF parsed. Resume text length: ${resumeText.length}`);
-
-        // 4. Generate Prompt and Call AI Model
-        // ✨ **FIX:** Use a prompt that explicitly defines the desired JSON structure.
-        const prompt = `
-            Analyze the following resume against the job description. Your response MUST be a JSON object that strictly adheres to the following structure:
         
+        // --- 3. Interact with Generative AI Model ---
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error("Internal Server Error: GEMINI_API_KEY is not configured.");
+        
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-pro-latest",
+            generationConfig: { responseMimeType: "application/json" },
+        });
+        
+        // ✨ IMPROVEMENT: The prompt now explicitly states atsScore is a number, not a string, to match the Zod schema.
+        const prompt = `
+            Analyze the following resume against the job description. Your response MUST be a valid JSON object that strictly adheres to the following structure:
             {
               "strengths": ["An array of 3 to 5 string showcasing the candidate's key strengths for this role."],
               "gaps": ["An array of 3 to 5 strings identifying where the resume is weak for this specific job."],
-              "atsScore": "An integer between 0 and 100 representing the resume's match to the job description.",
+              "atsScore": 85, 
               "suggestions": ["An array of exactly 2 actionable string suggestions to improve the resume."]
             }
-        
-            Job Description:
-            ---
-            ${jobDescriptionText}
-            ---
-        
-            Resume Text:
-            ---
-            ${resumeText}
-            ---
+            Job Description: --- ${jobDescriptionText} ---
+            Resume Text: --- ${resumeText} ---
         `;
-        console.log("✅ Prompt created. Calling Google AI...");
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
-        console.log("✅ Received response from Google AI.");
-
-        // 5. Validate and Return Response
+        
+        // --- 4. Validate AI Output and Persist Data ---
         const parsedObject = JSON.parse(responseText);
         const validation = opportunityAnalysisSchema.safeParse(parsedObject);
 
         if (!validation.success) {
-            // Log the actual object received from the AI for easier debugging
-            console.error("❌ Zod validation failed. AI Response:", parsedObject);
-            console.error("Validation Errors:", validation.error);
-            throw new Error("AI model returned an object with an invalid shape.");
+            console.error("Zod Validation Error:", validation.error.flatten());
+            throw new Error("Internal Server Error: AI model returned an object with an invalid shape.");
         }
-        console.log("✅ AI response validated. Sending success response.");
+        
+        const analysisData = validation.data;
 
-        return NextResponse.json(validation.data);
+        await saveAnalysisResult(uid, {
+            jobDescription: jobDescriptionText.substring(0, 150) + "...",
+            fileName: resumeFile.name,
+            ...analysisData
+        });
 
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
-        console.error("❌ CATCH BLOCK: An error occurred in the handler.", errorMessage);
+        // --- 5. Return Successful Response ---
+        return NextResponse.json(analysisData);
+
+    } catch (error: any) {
+        console.error("Analysis API Error:", error.message);
+        
+        // ✨ IMPROVEMENT: This now catches *any* Firebase auth error (expired, invalid, malformed) and returns a 401.
+        if (error.code?.startsWith('auth/')) {
+            return NextResponse.json({ error: "Authentication session has expired. Please log in again." }, { status: 401 });
+        }
+        
+        const errorMessage = error.message.includes("Internal Server Error") 
+            ? error.message 
+            : "An unexpected error occurred.";
+            
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

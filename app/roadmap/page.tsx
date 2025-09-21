@@ -2,18 +2,21 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation'; // ✨ Import useRouter
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { LoaderCircle, Milestone, BookOpen, Link as LinkIcon, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner'; // ✨ Import toast
+import { AuthGuard } from '@/components/AuthGuard';
+import { apiClient } from '@/lib/apiClient'; // ✨ Import the apiClient
 
-// Define the types to match our API response
+// Interfaces remain the same
 interface RoadmapStep {
   title: string;
   description: string;
-  resourceLink?: string | null; // Allow null for resourceLink
+  resourceLink?: string | null;
 }
 
 interface RoadmapSection {
@@ -23,39 +26,46 @@ interface RoadmapSection {
 
 function RoadmapContent() {
     const searchParams = useSearchParams();
+    const router = useRouter(); // ✨ Initialize router
     const [roadmap, setRoadmap] = useState<RoadmapSection[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState('');
+    
     const careerTitle = searchParams.get('career');
     const strengths = searchParams.get('strengths');
     const gaps = searchParams.get('gaps');
 
     useEffect(() => {
-        if (careerTitle && strengths && gaps) {
-            const fetchRoadmap = async () => {
-                setIsLoading(true);
-                setError('');
+        const fetchRoadmap = async () => {
+            if (careerTitle && strengths && gaps) {
                 try {
-                    const response = await fetch('/api/roadmap', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ careerTitle, strengths: strengths.split(','), gaps: gaps.split(',') }),
+                    // ✨ USE THE API CLIENT FOR A ROBUST, AUTHENTICATED REQUEST
+                    const data = await apiClient.post('/api/roadmap', {
+                        careerTitle,
+                        strengths: strengths.split(','),
+                        gaps: gaps.split(',')
                     });
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.error || 'Failed to generate roadmap.');
                     setRoadmap(data.roadmap);
                 } catch (err: any) {
-                    setError(err.message);
+                    // ✨ Use toast for user-friendly error feedback
+                    toast.error("Failed to generate roadmap", {
+                        description: err.message,
+                    });
+                    if (err.message.toLowerCase().includes("authenticated")) {
+                        router.push('/login');
+                    }
                 } finally {
                     setIsLoading(false);
                 }
-            };
-            fetchRoadmap();
-        } else {
-            setError("Career information is missing. Please select a career path first.");
-            setIsLoading(false);
-        }
-    }, [careerTitle, strengths, gaps]);
+            } else {
+                toast.error("Career information is missing", {
+                    description: "Please select a career path first.",
+                });
+                setIsLoading(false);
+                router.push('/career-paths');
+            }
+        };
+        fetchRoadmap();
+    }, [careerTitle, strengths, gaps, router]);
 
     if (isLoading) {
         return (
@@ -66,9 +76,7 @@ function RoadmapContent() {
         );
     }
 
-    if (error) {
-        return <p className="text-red-500 text-center font-semibold">{error}</p>;
-    }
+    // ✨ The old error text is no longer needed
 
     return (
         <div className="space-y-12">
@@ -103,36 +111,35 @@ function RoadmapContent() {
                     </div>
                 </div>
             ))}
-             <div className="text-center mt-12">
-                 {/* ✨ FIX: Updated the link to pass the career title to the interview page */}
-                 <Link href={`/take-interview/${encodeURIComponent(careerTitle || 'your-chosen-field')}`}>
+            <div className="text-center mt-12">
+                <Link href={`/take-interview?career=${encodeURIComponent(careerTitle || 'your-chosen-field')}`}>
                     <Button size="lg">
                         I'm Ready to Practice! Start Mock Interview
                         <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
-                 </Link>
+                </Link>
             </div>
         </div>
     );
 }
 
-
 export default function RoadmapPage() {
     const searchParams = useSearchParams();
-    // Use a fallback for the title to avoid displaying "null"
     const careerTitle = searchParams.get('career') || "Your Career";
 
     return (
-        <MainLayout>
-            <div className="container py-12">
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl font-bold">Your Personalized Roadmap to Becoming a {careerTitle}</h1>
-                    <p className="text-lg text-muted-foreground mt-2">Follow these steps to build your skills and land your dream job.</p>
+        <AuthGuard>
+            <MainLayout>
+                <div className="container py-12">
+                    <div className="text-center mb-12">
+                        <h1 className="text-4xl font-bold">Your Personalized Roadmap to Becoming a {careerTitle}</h1>
+                        <p className="text-lg text-muted-foreground mt-2">Follow these steps to build your skills and land your dream job.</p>
+                    </div>
+                    <Suspense fallback={<div className="flex justify-center"><LoaderCircle className="h-12 w-12 animate-spin text-primary mx-auto" /></div>}>
+                        <RoadmapContent />
+                    </Suspense>
                 </div>
-                <Suspense fallback={<div className="flex justify-center"><LoaderCircle className="h-12 w-12 animate-spin text-primary mx-auto" /></div>}>
-                    <RoadmapContent />
-                </Suspense>
-            </div>
-        </MainLayout>
+            </MainLayout>
+        </AuthGuard>
     );
 }

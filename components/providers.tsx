@@ -10,13 +10,18 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Get the auth check function from your store
-  const { checkAuthStatus } = useAuthStore();
+  // ✨ Get the new listener function from your Firebase-powered store
+  const initializeAuthListener = useAuthStore((state) => state.initializeAuthListener);
 
-  // Run the authentication check only once when the application first loads
+  // Run the authentication listener setup only once when the app loads
   useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
+    const unsubscribe = initializeAuthListener();
+
+    // Clean up the listener when the component unmounts
+    return () => {
+      unsubscribe();
+    };
+  }, [initializeAuthListener]);
 
   return (
     <ThemeProvider

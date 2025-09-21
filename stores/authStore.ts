@@ -1,24 +1,32 @@
 // stores/authStore.ts
 import { create } from 'zustand';
+import {
+  User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { createUserProfile } from '@/lib/firestore';
 
-// ✨ FIX: Added the optional 'avatar' property to the User interface.
 interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  avatar?: string | null; // This allows the user object to have an avatar property.
+  uid: string;
+  email: string | null;
+  name: string | null;
+  avatar?: string | null;
 }
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  initializeAuthListener: () => () => void;
   login: (loginData: any) => Promise<boolean>;
   register: (registerData: any) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
-  checkAuthStatus: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -28,69 +36,61 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => set({ error: null }),
 
-  checkAuthStatus: async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (!response.ok) {
-        throw new Error('Not authenticated');
+  initializeAuthListener: () => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        set({
+          user: {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName,
+            avatar: firebaseUser.photoURL,
+          },
+          isLoading: false,
+        });
+      } else {
+        set({ user: null, isLoading: false });
       }
-      const result = await response.json();
-      set({ user: result.user, isLoading: false });
-    } catch (error) {
-      set({ user: null, isLoading: false });
-    }
+    });
+    return unsubscribe;
   },
 
   login: async (loginData) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData),
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed.');
-      }
-
-      set({ user: result.user, isLoading: false });
+      await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
       return true;
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      // Use a more user-friendly error message
+      set({ error: "Invalid email or password." });
       return false;
     }
   },
 
-  logout: async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    set({ user: null }); // No need to set isLoading here
-  },
-
   register: async (registerData) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registerData),
+      const userCredential = await createUserWithEmailAndPassword(auth, registerData.email, registerData.password);
+      const user = userCredential.user;
+      await updateProfile(user, { displayName: registerData.name });
+      await createUserProfile(user.uid, {
+        uid: user.uid,
+        email: user.email,
+        name: registerData.name,
       });
-
-      const result = await response.json();
-      if (!response.ok) {
-        if (result.details) {
-          const firstError = Object.values(result.details)[0];
-          throw new Error(firstError as string);
-        }
-        throw new Error(result.error || 'Registration failed.');
-      }
-      
-      set({ isLoading: false });
       return true;
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      set({ error: err.message });
       return false;
+    }
+  },
+  
+  logout: async () => {
+    try {
+      await signOut(auth);
+      set({ user: null });
+    } catch (err: any) {
+        set({ error: err.message });
     }
   },
 }));

@@ -2,18 +2,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
+import { auth as adminAuth, credential } from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { saveRoadmap } from "@/lib/firestore";
 
-// Zod schemas for a structured, multi-step roadmap
+// ✨ FINAL FIX: Initialize with Application Default Credentials
+if (!getApps().length) {
+  initializeApp({
+    credential: credential.applicationDefault(),
+  });
+}
+
 const roadmapStepSchema = z.object({
   title: z.string(),
   description: z.string(),
-  // ✨ FIX: Changed from .optional() to .nullable()
-  // This allows the AI to return `null` for the resourceLink, making our validation robust.
   resourceLink: z.string().url().nullable(),
 });
 
 const roadmapSectionSchema = z.object({
-  sectionTitle: z.string(), // e.g., "Phase 1: Foundational Skills"
+  sectionTitle: z.string(),
   steps: z.array(roadmapStepSchema),
 });
 
@@ -23,6 +30,13 @@ const roadmapResponseSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const authToken = req.headers.get('Authorization')?.split('Bearer ')[1];
+    if (!authToken) {
+      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    }
+    const decodedToken = await adminAuth().verifyIdToken(authToken);
+    const uid = decodedToken.uid;
+
     const { careerTitle, strengths, gaps } = await req.json();
 
     if (!careerTitle || !strengths || !gaps) {
@@ -40,46 +54,45 @@ export async function POST(req: NextRequest) {
 
     const prompt = `
       You are an expert AI Career Strategist. A student in India has the following strengths and gaps and wants to pursue a career as a "${careerTitle}".
-
-      Strengths: ${strengths.join(", ")}
-      Gaps: ${gaps.join(", ")}
-
-      Your task is to generate a detailed, actionable, and personalized step-by-step roadmap for them. The roadmap should be broken down into at least 3 logical phases (e.g., Foundations, Building Experience, Job Readiness). Your response MUST be a JSON object that strictly adheres to this structure:
-
+      Your task is to generate a detailed, actionable roadmap. The response MUST be a JSON object structured as:
       {
         "roadmap": [
           {
-            "sectionTitle": "Phase 1: Title for the first phase",
+            "sectionTitle": "Phase 1: Title",
             "steps": [
               {
-                "title": "Specific, actionable step title (e.g., 'Master Python Fundamentals')",
-                "description": "A 1-2 sentence explanation of why this step is important and what to focus on.",
-                "resourceLink": "A URL to a relevant high-quality course or tutorial. If no suitable link is found, this value MUST be null."
+                "title": "Specific step title",
+                "description": "A 1-2 sentence explanation.",
+                "resourceLink": "A relevant URL or null."
               }
             ]
           }
         ]
       }
-
-      Generate a comprehensive and encouraging roadmap. Prioritize free or highly-rated resources where possible.
+      Strengths: ${strengths.join(", ")}
+      Gaps: ${gaps.join(", ")}
     `;
-
+    
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     const parsedObject = JSON.parse(responseText);
     const validation = roadmapResponseSchema.safeParse(parsedObject);
 
     if (!validation.success) {
-      console.error("Zod validation failed. AI Response:", parsedObject);
-      // Log the specific Zod errors for easier debugging
-      console.error("Validation Errors:", validation.error.flatten()); 
       throw new Error("AI model returned an object with an invalid shape.");
     }
+    
+    const roadmapData = validation.data;
 
-    return NextResponse.json(validation.data);
+    await saveRoadmap(uid, careerTitle, roadmapData);
 
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+    return NextResponse.json(roadmapData);
+
+  } catch (error: any) {
+    const errorMessage = error.message || "An unexpected error occurred.";
+    if (error.code === 'auth/id-token-expired' || error.code === 'auth/argument-error') {
+        return NextResponse.json({ error: "Authentication session has expired. Please log in again." }, { status: 401 });
+    }
     console.error("Roadmap API Error:", errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }

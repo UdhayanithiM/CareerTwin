@@ -2,13 +2,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
+import { auth as adminAuth, credential } from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
 
-// Zod schema for the AI model's output
+// ✨ FINAL FIX: Initialize with Application Default Credentials
+if (!getApps().length) {
+  initializeApp({
+    credential: credential.applicationDefault(),
+  });
+}
+
 const careerPathSchema = z.object({
   title: z.string(),
   description: z.string(),
   matchScore: z.number().int().min(0).max(100),
-  avgSalary: z.string(), // e.g., "$80,000 - $120,000"
+  avgSalary: z.string(),
 });
 
 const careerPathsResponseSchema = z.object({
@@ -17,6 +25,12 @@ const careerPathsResponseSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const authToken = req.headers.get('Authorization')?.split('Bearer ')[1];
+    if (!authToken) {
+      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    }
+    await adminAuth().verifyIdToken(authToken);
+
     const { strengths, gaps } = await req.json();
 
     if (!strengths || !gaps) {
@@ -37,8 +51,7 @@ export async function POST(req: NextRequest) {
     });
 
     const prompt = `
-      Based on the following resume analysis, generate 3-5 tailored career path recommendations for a student in India. Your response MUST be a JSON object that strictly adheres to the following structure:
-
+      Based on the following resume analysis, generate 3-5 tailored career path recommendations for a student in India. Your response MUST be a JSON object that strictly adheres to this structure:
       {
         "careerPaths": [
           {
@@ -49,7 +62,6 @@ export async function POST(req: NextRequest) {
           }
         ]
       }
-
       Resume Analysis:
       ---
       Strengths: ${strengths.join(", ")}
@@ -63,16 +75,17 @@ export async function POST(req: NextRequest) {
     const validation = careerPathsResponseSchema.safeParse(parsedObject);
 
     if (!validation.success) {
-      console.error("Zod validation failed. AI Response:", parsedObject);
-      console.error("Validation Errors:", validation.error);
       throw new Error("AI model returned an object with an invalid shape.");
     }
 
     return NextResponse.json(validation.data);
 
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
-    console.error("An error occurred in the handler.", errorMessage);
+  } catch (error: any) {
+    const errorMessage = error.message || "An unexpected error occurred.";
+    if (error.code === 'auth/id-token-expired' || error.code === 'auth/argument-error') {
+        return NextResponse.json({ error: "Authentication session has expired. Please log in again." }, { status: 401 });
+    }
+    console.error("Career Paths API Error:", errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
