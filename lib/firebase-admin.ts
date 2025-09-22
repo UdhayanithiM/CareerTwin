@@ -1,37 +1,34 @@
 // lib/firebase-admin.ts
-import admin from 'firebase-admin';
+import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { ServiceAccount } from 'firebase-admin/app';
 
-// This function ensures Firebase Admin is initialized only once.
-const initializeAdmin = () => {
-  if (admin.apps.length > 0) {
-    return admin.app();
+// Use the new, non-reserved environment variable name
+const serviceAccountString = process.env.ADMIN_SERVICE_ACCOUNT;
+
+if (!serviceAccountString) {
+  // We still need a check to allow the build to pass
+  if (process.env.npm_lifecycle_event === 'build') {
+    console.log('Build process detected, skipping Firebase Admin initialization.');
+  } else {
+    throw new Error('The ADMIN_SERVICE_ACCOUNT environment variable is not set at runtime.');
   }
+}
 
-  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+let app: App | undefined;
 
-  if (!serviceAccountString) {
-    // This check allows the build process to succeed without the secret key.
-    // The error will only be thrown if the key is missing when an API is actually called.
-    if (process.env.npm_lifecycle_event !== 'build') {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set at runtime.');
-    }
-    // Return null or a dummy app during build if you have logic that needs an app object
-    return null;
-  }
-
+// Only initialize if the service account string is present
+if (serviceAccountString) {
   const serviceAccount: ServiceAccount = JSON.parse(serviceAccountString);
+  if (!getApps().length) {
+    app = initializeApp({
+      credential: cert(serviceAccount),
+    });
+  } else {
+    app = getApps()[0];
+  }
+}
 
-  return admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-};
-
-const app = initializeAdmin();
-
-// These exports will now work correctly. If the app is null (during build),
-// they won't be used. At runtime, they will be properly initialized.
+// Export the admin services, checking if the app was initialized
 export const adminDb = app ? getFirestore(app) : null;
 export const adminAuth = app ? getAuth(app) : null;
