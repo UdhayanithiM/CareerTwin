@@ -1,27 +1,37 @@
 // lib/firebase-admin.ts
-import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
+import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { ServiceAccount } from 'firebase-admin/app';
 
-// This will now parse the service account JSON from the single environment variable
-const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+// This function ensures Firebase Admin is initialized only once.
+const initializeAdmin = () => {
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
 
-if (!serviceAccountString) {
-  throw new Error('The FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
-}
+  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-const serviceAccount: ServiceAccount = JSON.parse(serviceAccountString);
+  if (!serviceAccountString) {
+    // This check allows the build process to succeed without the secret key.
+    // The error will only be thrown if the key is missing when an API is actually called.
+    if (process.env.npm_lifecycle_event !== 'build') {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set at runtime.');
+    }
+    // Return null or a dummy app during build if you have logic that needs an app object
+    return null;
+  }
 
-let app: App;
+  const serviceAccount: ServiceAccount = JSON.parse(serviceAccountString);
 
-if (!getApps().length) {
-  app = initializeApp({
-    credential: cert(serviceAccount),
+  return admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
   });
-} else {
-  app = getApps()[0];
-}
+};
 
-// Export the admin versions of Firestore and Auth
-export const adminDb = getFirestore(app);
-export const adminAuth = getAuth(app);
+const app = initializeAdmin();
+
+// These exports will now work correctly. If the app is null (during build),
+// they won't be used. At runtime, they will be properly initialized.
+export const adminDb = app ? getFirestore(app) : null;
+export const adminAuth = app ? getAuth(app) : null;
