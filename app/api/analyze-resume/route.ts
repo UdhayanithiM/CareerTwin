@@ -3,11 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import pdf from "pdf-parse";
-// Import our centralized admin auth and db
-import { adminAuth, adminDb } from "@/lib/firebase-admin"; 
+// This now correctly imports the new getter functions
+import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin"; 
 import { saveAnalysisResult } from "@/lib/firestore";
-
-// The old initialization has been removed from this file.
 
 const opportunityAnalysisSchema = z.object({
     strengths: z.array(z.string()).min(3).max(5),
@@ -19,11 +17,13 @@ const opportunityAnalysisSchema = z.object({
 export async function POST(req: NextRequest) {
     try {
         // --- 1. Authenticate User ---
+        // This now calls the function to get the instance
+        const adminAuth = getAdminAuth(); 
         const authToken = req.headers.get('Authorization')?.split('Bearer ')[1];
         if (!authToken) {
             return NextResponse.json({ error: "Unauthorized: Auth token missing." }, { status: 401 });
         }
-        // Use the imported adminAuth instance
+        
         const decodedToken = await adminAuth.verifyIdToken(authToken);
         const uid = decodedToken.uid;
 
