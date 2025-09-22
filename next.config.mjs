@@ -3,8 +3,7 @@ import 'dotenv/config';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // This is the line that fixes the error
-  output: 'export',
+  // The "output: 'export'," line has been removed to fix the build error.
 
   eslint: {
     ignoreDuringBuilds: true,
