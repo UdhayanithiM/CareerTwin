@@ -3,7 +3,7 @@ import 'dotenv/config';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add this line right here
+  // This is the line that fixes the error
   output: 'export',
 
   eslint: {
