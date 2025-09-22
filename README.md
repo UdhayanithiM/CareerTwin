@@ -4,6 +4,7 @@
 
 # CareerTwin
 
+
 *Your Personalized AI Career Co-pilot, built with Next.js and Google Cloud.*
 
 -----
@@ -91,7 +92,6 @@ careertwin/
 
     ```bash
     npm run dev       # or
-    yarn dev          # or
     pnpm dev
     ```
 

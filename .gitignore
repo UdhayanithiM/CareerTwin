@@ -15,6 +15,7 @@
 *.pem
 service-account-key.json
 firebase-service-account-key.json
+service-account.json
 
 extension/config.ts
 
