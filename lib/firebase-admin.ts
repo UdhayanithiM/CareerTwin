@@ -1,14 +1,16 @@
 // lib/firebase-admin.ts
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
-// IMPORTANT: Your service account credentials should be set as Environment Variables in Vercel.
-const serviceAccount = {
-  projectId: process.env.GCP_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-};
+// This will now parse the service account JSON from the single environment variable
+const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+if (!serviceAccountString) {
+  throw new Error('The FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
+}
+
+const serviceAccount: ServiceAccount = JSON.parse(serviceAccountString);
 
 let app: App;
 
