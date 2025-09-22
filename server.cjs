@@ -1,11 +1,12 @@
-// server.js
+// server.cjs
 import express from 'express';
 import next from 'next';
 import { parse } from 'url';
 
 // Determine if the environment is development or production.
-const dev = process.env.NODE_ENV!== 'production';
-const hostname = 'localhost';
+const dev = process.env.NODE_ENV !== 'production';
+// CRITICAL CHANGE: Listen on 0.0.0.0 for container compatibility
+const hostname = '0.0.0.0'; 
 // Dynamically read the PORT from the environment variables provided by Cloud Run.
 // Fallback to 3000 for local development.
 const port = parseInt(process.env.PORT, 10) || 3000;
@@ -28,11 +29,12 @@ app.prepare().then(() => {
     return handle(req, res, parsedUrl);
   });
 
-  server.listen(port, (err) => {
+  // CRITICAL CHANGE: Explicitly listen on the correct hostname
+  server.listen(port, hostname, (err) => {
     if (err) throw err;
-    console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Ready on http://localhost:${port}`);
   });
 }).catch(err => {
-    console.error('Error starting server', err);
-    process.exit(1);
+  console.error('Error starting server', err);
+  process.exit(1);
 });
